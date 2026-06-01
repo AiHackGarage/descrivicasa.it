@@ -388,7 +388,7 @@
             selectedFiles.forEach(f => formData.append('files', f));
 
             try {
-                const resp = await fetch('/analyze', { method: 'POST', body: formData });
+                const resp = await fetch('/api/analyze.php', { method: 'POST', body: formData });
                 const data = await resp.json();
 
                 loading.classList.remove('show');
