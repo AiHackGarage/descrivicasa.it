@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DescriviCasa — Prezzi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+
+        header { text-align: center; padding: 60px 0 40px; }
+        header h1 {
+            font-size: 2.8rem; font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        header p { font-size: 1.1rem; color: #86868b; margin-top: 12px; }
+
+        .nav { text-align: center; margin-bottom: 30px; }
+        .nav a {
+            color: #667eea; text-decoration: none; margin: 0 12px; font-size: 0.95rem;
+        }
+        .nav a:hover { text-decoration: underline; }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+        .plan {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .plan:hover { transform: translateY(-4px); }
+        .plan.featured {
+            border: 2px solid #667eea;
+            position: relative;
+        }
+        .plan.featured .badge {
+            position: absolute;
+            top: -12px; left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .plan-icon { font-size: 2.5rem; margin-bottom: 16px; }
+        .plan h2 { font-size: 1.5rem; margin-bottom: 8px; }
+        .plan .price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin: 20px 0;
+        }
+        .plan .price span {
+            font-size: 1rem;
+            color: #86868b;
+            font-weight: 400;
+        }
+        .plan ul {
+            list-style: none;
+            text-align: left;
+            margin: 24px 0;
+            padding: 0;
+        }
+        .plan ul li {
+            padding: 8px 0;
+            font-size: 0.95rem;
+            color: #515154;
+        }
+        .plan ul li::before {
+            content: '✓ ';
+            color: #34c759;
+            font-weight: 700;
+        }
+        .plan ul li.missing { color: #c0c0c0; }
+        .plan ul li.missing::before { content: '✗ '; color: #ff3b30; }
+
+        .btn-cta {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 14px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .btn-cta:hover { opacity: 0.9; }
+
+        footer { text-align: center; padding: 40px; color: #86868b; font-size: 0.85rem; }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 2rem; }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .plan { padding: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Prezzi</h1>
+            <p>Scegli il piano più adatto alle tue esigenze</p>
+        </header>
+
+        <div class="nav">
+            <a href="/">Home</a>
+            <a href="/pricing">Prezzi</a>
+        </div>
+
+        <div class="pricing-grid">
+            <div class="plan">
+                <div class="plan-icon">📱</div>
+                <h2>Base</h2>
+                <div class="price">€9 <span>/mese</span></div>
+                <ul>
+                    <li>50 descrizioni al mese</li>
+                    <li>Fino a 5 foto per descrizione</li>
+                    <li>AI Vision (Gemini 2.0 Flash)</li>
+                    <li>Formato testo professionale</li>
+                    <li>Supporto email</li>
+                    <li class="missing">Esportazione PDF</li>
+                    <li class="missing">API pubblica</li>
+                </ul>
+                <a href="#" class="btn-cta">Inizia Ora</a>
+            </div>
+
+            <div class="plan featured">
+                <div class="badge">Più Popolare</div>
+                <div class="plan-icon">🚀</div>
+                <h2>Pro</h2>
+                <div class="price">€29 <span>/mese</span></div>
+                <ul>
+                    <li>Descrizioni illimitate</li>
+                    <li>Fino a 10 foto per descrizione</li>
+                    <li>AI Vision Premium (Claude Sonnet 4)</li>
+                    <li>Esportazione PDF</li>
+                    <li>API pubblica per integrazione</li>
+                    <li>Supporto prioritario</li>
+                </ul>
+                <a href="#" class="btn-cta">Inizia Ora</a>
+            </div>
+        </div>
+
+        <footer>
+            DescriviCasa — Built with ❤️ by Riccardo & Hermes Agent
+        </footer>
+    </div>
+</body>
+</html>

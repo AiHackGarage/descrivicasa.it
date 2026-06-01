@@ -1,0 +1,16 @@
+{
+  "name": "descrivicasa.it",
+  "version": "1.0.0",
+  "description": "PropertyDescriber — Descrizioni Immobiliari con AI (Node.js)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "dotenv": "^16.4.0",
+    "uuid": "^10.0.0"
+  }
+}

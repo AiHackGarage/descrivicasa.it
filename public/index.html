@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DescriviCasa — Descrizioni Immobiliari con AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            min-height: 100vh;
+        }
+        .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+
+        header {
+            text-align: center;
+            padding: 60px 0 40px;
+        }
+        header h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        header p {
+            font-size: 1.2rem;
+            color: #86868b;
+            margin-top: 12px;
+        }
+
+        .upload-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+
+        .drop-zone {
+            border: 2px dashed #d2d2d7;
+            border-radius: 16px;
+            padding: 50px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+        .drop-zone.has-files {
+            border-color: #34c759;
+            background: #f0fff4;
+        }
+        .drop-zone-icon { font-size: 3rem; margin-bottom: 16px; }
+        .drop-zone p { color: #86868b; font-size: 1rem; }
+        .drop-zone .btn-select {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 10px 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 40px;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .drop-zone .btn-select:hover { background: #5a6fd6; }
+
+        #file-input { display: none; }
+
+        .file-list { margin-top: 20px; display: none; }
+        .file-list.show { display: block; }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: #f5f5f7;
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        .file-item img {
+            width: 48px; height: 48px;
+            object-fit: cover; border-radius: 8px;
+        }
+        .file-item span { flex: 1; font-size: 0.9rem; }
+        .file-item .remove {
+            background: none; border: none;
+            font-size: 1.2rem; cursor: pointer; color: #ff3b30;
+        }
+
+        .btn-analyze {
+            display: block; width: 100%;
+            margin-top: 24px; padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 14px;
+            font-size: 1.1rem; font-weight: 600; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-analyze:hover { opacity: 0.9; }
+        .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .loading { display: none; text-align: center; padding: 40px; }
+        .loading.show { display: block; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid #e0e0e0;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Result section */
+        #result { display: none; }
+        #result.show { display: block; }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .image-grid img {
+            width: 100%; height: 150px;
+            object-fit: cover; border-radius: 12px; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .image-grid img:hover { transform: scale(1.02); }
+        .description-box {
+            background: #f5f5f7; border-radius: 16px;
+            padding: 24px; margin-bottom: 24px;
+        }
+        .description-box h3 {
+            font-size: 1rem; color: #86868b;
+            margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .description-box p {
+            font-size: 1.05rem; line-height: 1.7; white-space: pre-wrap;
+        }
+        .actions { display: flex; gap: 12px; }
+        .btn-copy {
+            flex: 1; padding: 12px 20px;
+            background: #667eea; color: white; border: none;
+            border-radius: 14px; font-size: 1rem; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-copy:hover { opacity: 0.9; }
+        .btn-new {
+            flex: 1; padding: 12px 20px;
+            background: #f5f5f7; border: 1px solid #d2d2d7;
+            border-radius: 14px; color: #1d1d1f;
+            text-decoration: none; text-align: center; font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .btn-new:hover { background: #e8e8ed; }
+        .model-badge { text-align: center; margin-top: 16px; font-size: 0.8rem; color: #a0a0a0; }
+        .copied-msg {
+            display: none; text-align: center; padding: 8px;
+            background: #34c759; color: white; border-radius: 8px;
+            margin-top: 12px; font-size: 0.9rem;
+        }
+        .copied-msg.show { display: block; }
+        .error-msg {
+            display: none; text-align: center; padding: 16px;
+            background: #fff0f0; color: #ff3b30; border-radius: 12px;
+            margin-top: 12px; font-size: 0.95rem; border: 1px solid #ffd0d0;
+        }
+        .error-msg.show { display: block; }
+
+        .features {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 20px; margin-top: 60px;
+        }
+        .feature { text-align: center; padding: 24px; }
+        .feature-icon { font-size: 2rem; margin-bottom: 12px; }
+        .feature h3 { font-size: 1rem; margin-bottom: 6px; }
+        .feature p { font-size: 0.85rem; color: #86868b; }
+
+        footer { text-align: center; padding: 40px; color: #86868b; font-size: 0.85rem; }
+        .nav { text-align: center; margin-bottom: 20px; }
+        .nav a {
+            color: #667eea; text-decoration: none; margin: 0 12px; font-size: 0.95rem;
+        }
+        .nav a:hover { text-decoration: underline; }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 2rem; }
+            .features { grid-template-columns: 1fr; }
+            .upload-card { padding: 20px; }
+            .drop-zone { padding: 30px 16px; }
+            .actions { flex-direction: column; }
+            .image-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏠 DescriviCasa</h1>
+            <p>Carica le foto e ottieni descrizioni immobiliari professionali con l'AI</p>
+        </header>
+
+        <div class="nav">
+            <a href="/">Home</a>
+            <a href="/pricing">Prezzi</a>
+        </div>
+
+        <!-- Upload Section -->
+        <div id="upload-section">
+            <div class="upload-card">
+                <div class="drop-zone" id="drop-zone">
+                    <div class="drop-zone-icon">📸</div>
+                    <p>Trascina qui le foto dell'immobile</p>
+                    <p style="font-size:0.85rem; margin-top:6px;">oppure</p>
+                    <button type="button" class="btn-select" id="btn-select">Seleziona Foto</button>
+                    <p style="font-size:0.8rem; margin-top:12px; color:#a0a0a0;">Max 5 foto • JPEG, PNG, WebP</p>
+                </div>
+                <input type="file" id="file-input" name="files" multiple accept="image/*" />
+
+                <div class="file-list" id="file-list"></div>
+
+                <button type="submit" class="btn-analyze" id="btn-analyze" disabled>
+                    ✨ Genera Descrizione
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analizzando le foto con l'AI...</p>
+            <p style="font-size:0.85rem; color:#86868b; margin-top:6px;">Di solito ci vogliono 15-30 secondi</p>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="error-msg"></div>
+
+        <!-- Result -->
+        <div id="result">
+            <div class="upload-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                    <h2 style="font-size:1.5rem;">✨ Descrizione Generata</h2>
+                </div>
+
+                <div class="image-grid" id="result-images"></div>
+
+                <div class="description-box">
+                    <h3>📝 Descrizione per l'annuncio</h3>
+                    <p id="description-text"></p>
+                </div>
+
+                <div class="actions">
+                    <button class="btn-copy" onclick="copyDescription()">📋 Copia Descrizione</button>
+                    <button class="btn-new" onclick="resetPage()">🔄 Nuova Descrizione</button>
+                </div>
+
+                <div class="copied-msg" id="copied-msg">✅ Copiato negli appunti!</div>
+                <div class="model-badge" id="model-badge"></div>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>Veloce</h3>
+                <p>Descrizione pronta in secondi</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <h3>Professionale</h3>
+                <p>Tono caldo e accattivante per vendere</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🇮🇹</div>
+                <h3>Italiano Perfetto</h3>
+                <p>Descrizioni naturali per il mercato italiano</p>
+            </div>
+        </div>
+
+        <footer>
+            DescriviCasa — Built with ❤️ by Riccardo & Hermes Agent
+        </footer>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const btnSelect = document.getElementById('btn-select');
+        const fileList = document.getElementById('file-list');
+        const btnAnalyze = document.getElementById('btn-analyze');
+        const loading = document.getElementById('loading');
+        const resultDiv = document.getElementById('result');
+        const errorMsg = document.getElementById('error-msg');
+        const uploadSection = document.getElementById('upload-section');
+
+        let selectedFiles = [];
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            if (selectedFiles.length === 0) {
+                fileList.classList.remove('show');
+                btnAnalyze.disabled = true;
+                dropZone.classList.remove('has-files');
+                return;
+            }
+            fileList.classList.add('show');
+            dropZone.classList.add('has-files');
+            btnAnalyze.disabled = false;
+
+            selectedFiles.forEach((file, idx) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                const span = document.createElement('span');
+                span.textContent = `${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+                const remove = document.createElement('button');
+                remove.className = 'remove';
+                remove.textContent = '✕';
+                remove.onclick = (e) => {
+                    e.stopPropagation();
+                    selectedFiles.splice(idx, 1);
+                    updateFileList();
+                };
+                div.appendChild(img);
+                div.appendChild(span);
+                div.appendChild(remove);
+                fileList.appendChild(div);
+            });
+        }
+
+        function openFilePicker(e) {
+            if (e) e.stopPropagation();
+            fileInput.value = '';
+            setTimeout(() => fileInput.click(), 50);
+        }
+
+        btnSelect.addEventListener('click', (e) => { e.stopPropagation(); openFilePicker(); });
+
+        dropZone.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-select') || e.target.closest('.remove')) return;
+            openFilePicker();
+        });
+
+        dropZone.addEventListener('touchend', (e) => {
+            if (e.target.closest('.btn-select') || e.target.closest('.remove')) return;
+            e.preventDefault();
+            openFilePicker();
+        });
+
+        dropZone.addEventListener('dragenter', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (files.length > 0) {
+                selectedFiles = [...selectedFiles, ...files].slice(0, 5);
+                updateFileList();
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            const files = Array.from(fileInput.files).filter(f => f.type.startsWith('image/'));
+            if (files.length > 0) {
+                selectedFiles = [...selectedFiles, ...files].slice(0, 5);
+                updateFileList();
+            }
+        });
+
+        // Submit
+        btnAnalyze.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            errorMsg.classList.remove('show');
+            uploadSection.style.display = 'none';
+            loading.classList.add('show');
+
+            const formData = new FormData();
+            selectedFiles.forEach(f => formData.append('files', f));
+
+            try {
+                const resp = await fetch('/analyze', { method: 'POST', body: formData });
+                const data = await resp.json();
+
+                loading.classList.remove('show');
+
+                if (data.error) {
+                    errorMsg.textContent = data.error;
+                    errorMsg.classList.add('show');
+                    uploadSection.style.display = 'block';
+                    return;
+                }
+
+                // Show result
+                const imageGrid = document.getElementById('result-images');
+                imageGrid.innerHTML = '';
+                if (data.images) {
+                    data.images.forEach(url => {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = 'Foto immobile';
+                        img.onclick = () => window.open(url);
+                        imageGrid.appendChild(img);
+                    });
+                }
+
+                document.getElementById('description-text').textContent = data.description;
+                document.getElementById('model-badge').textContent = data.model ? `Generato con ${data.model}` : '';
+                
+                // Update URL hash for SPA feel
+                window.location.hash = 'risultato';
+                resultDiv.classList.add('show');
+                window.scrollTo(0, 0);
+
+            } catch (err) {
+                loading.classList.remove('show');
+                errorMsg.textContent = 'Errore di connessione: ' + err.message;
+                errorMsg.classList.add('show');
+                uploadSection.style.display = 'block';
+            }
+        });
+
+        function copyDescription() {
+            const text = document.getElementById('description-text').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const msg = document.getElementById('copied-msg');
+                msg.classList.add('show');
+                setTimeout(() => msg.classList.remove('show'), 2500);
+            });
+        }
+
+        function resetPage() {
+            selectedFiles = [];
+            resultDiv.classList.remove('show');
+            errorMsg.classList.remove('show');
+            uploadSection.style.display = 'block';
+            updateFileList();
+            window.location.hash = '';
+            window.scrollTo(0, 0);
+        }
+
+        // Restore upload on hash change
+        window.addEventListener('hashchange', () => {
+            if (!window.location.hash) resetPage();
+        });
+    </script>
+</body>
+</html>
