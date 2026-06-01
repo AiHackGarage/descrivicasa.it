@@ -9,14 +9,11 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 // ── Config ────────────────────────────────────────────────────────
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
-
-// Ensure upload dir exists
+const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
@@ -29,14 +26,12 @@ const upload = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024, files: 5 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    cb(null, allowed.includes(file.mimetype));
+    cb(null, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype));
   },
 });
 
 // ── Static files ──────────────────────────────────────────────────
 app.use('/media/uploads', express.static(UPLOAD_DIR));
-app.use(express.static(path.join(__dirname, 'public')));
 
 // ── AI Vision Call ────────────────────────────────────────────────
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
@@ -72,58 +67,48 @@ function getMime(ext) {
 
 async function describeProperty(imagePaths, lang = 'it') {
   const content = [];
-
   const systemContent = lang === 'it' ? SYSTEM_PROMPT : SYSTEM_PROMPT.replace(/italiano/g, 'English').replace(/italiane/g, 'Italian');
   const userText = lang === 'it' ? USER_PROMPT : USER_PROMPT.replace(/italiano/g, 'English');
-
   content.push({ type: 'text', text: userText });
 
   for (const fp of imagePaths) {
     if (!fs.existsSync(fp)) continue;
     const b64 = encodeImage(fp);
     const ext = path.extname(fp).toLowerCase().replace('.', '');
-    const mime = getMime(ext);
     content.push({
       type: 'image_url',
-      image_url: { url: `data:${mime};base64,${b64}` },
+      image_url: { url: `data:${getMime(ext)};base64,${b64}` },
     });
   }
 
-  const payload = {
-    model: VISION_MODEL,
-    messages: [
-      { role: 'system', content: systemContent },
-      { role: 'user', content },
-    ],
-    max_tokens: 1024,
-    temperature: 0.7,
-  };
-
-  const headers = {
-    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-    'Content-Type': 'application/json',
-    'HTTP-Referer': 'https://descrivicasa.it',
-    'X-Title': 'DescriviCasa',
-  };
-
   const resp = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
     method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://descrivicasa.it',
+      'X-Title': 'DescriviCasa',
+    },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      messages: [
+        { role: 'system', content: systemContent },
+        { role: 'user', content },
+      ],
+      max_tokens: 1024,
+      temperature: 0.7,
+    }),
     signal: AbortSignal.timeout(120000),
   });
 
   if (!resp.ok) {
-    const text = await resp.text();
-    return { error: `API error ${resp.status}: ${text}` };
+    return { error: `API error ${resp.status}: ${await resp.text()}` };
   }
 
   const data = await resp.json();
-
   try {
-    const description = data.choices[0].message.content;
     return {
-      description,
+      description: data.choices[0].message.content,
       model: data.model || VISION_MODEL,
       tokens: data.usage || {},
     };
@@ -132,31 +117,18 @@ async function describeProperty(imagePaths, lang = 'it') {
   }
 }
 
-// ── Routes ────────────────────────────────────────────────────────
-
-// All static pages served via /public/index.html etc.
+// ── API Routes ────────────────────────────────────────────────────
 
 app.post('/analyze', upload.array('files', 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'Carica almeno una foto' });
     }
-
-    const savedPaths = req.files.map((f) => f.path);
-
-    const result = await describeProperty(savedPaths);
-
-    if (result.error) {
-      return res.status(500).json(result);
-    }
-
-    const imageUrls = req.files.map(
-      (f) => `/media/uploads/${path.basename(f.path)}`
-    );
-
+    const result = await describeProperty(req.files.map((f) => f.path));
+    if (result.error) return res.status(500).json(result);
     res.json({
       description: result.description,
-      images: imageUrls,
+      images: req.files.map((f) => `/media/uploads/${path.basename(f.path)}`),
       model: result.model || '',
     });
   } catch (err) {
@@ -165,8 +137,13 @@ app.post('/analyze', upload.array('files', 5), async (req, res) => {
   }
 });
 
-// Fallback: serve index.html for SPA-style routing
-app.get('*', (req, res) => {
+// ── Health check ──────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// ── Serve all HTML routes via index.html (SPA) ────────────────────
+app.get(['/', '/index.html', '/pricing'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
