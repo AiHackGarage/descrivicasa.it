@@ -350,6 +350,12 @@ app.get('/index.html', (req, res) => {
 app.get('/pricing', (req, res) => {
   res.sendFile(path.join(__dirname, 'pricing.html'));
 });
+app.get('/robots.txt', (req, res) => {
+  res.sendFile(path.join(__dirname, 'robots.txt'));
+});
+app.get('/sitemap.xml', (req, res) => {
+  res.sendFile(path.join(__dirname, 'sitemap.xml'));
+});
 
 // ── Start ─────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', async () => {
