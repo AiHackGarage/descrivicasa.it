@@ -234,7 +234,73 @@
             .image-grid { grid-template-columns: repeat(2, 1fr); }
             .topbar { flex-wrap: wrap; gap: 8px; padding: 10px 16px; }
             .topbar-links { display: none; }
+            .profile-panel { right: 10px; width: calc(100% - 20px); }
         }
+
+        /* ── Profile Panel ────────────────────────────────── */
+        .profile-panel {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            width: 340px;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+            z-index: 250;
+            display: none;
+            overflow: hidden;
+        }
+        .profile-panel.open { display: block; }
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 20px;
+            background: #f8f8fa;
+        }
+        .profile-header img {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .profile-name { font-weight: 600; font-size: 1rem; }
+        .profile-email { font-size: 0.8rem; color: #86868b; margin-top: 2px; }
+        .profile-body { padding: 16px 20px; }
+        .profile-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .profile-row:last-child { border-bottom: none; }
+        .profile-label { font-size: 0.85rem; color: #86868b; }
+        .profile-value { font-size: 0.85rem; font-weight: 500; color: #1d1d1f; }
+        .profile-footer {
+            display: flex;
+            gap: 10px;
+            padding: 14px 20px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .profile-btn {
+            flex: 1;
+            padding: 9px 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .profile-btn:hover { opacity: 0.9; }
+        .profile-btn-outline {
+            background: white;
+            color: #1d1d1f;
+            border: 1px solid #d2d2d7;
+        }
+        .profile-btn-outline:hover { background: #f5f5f7; }
 
         /* ── Top Bar ─────────────────────────────────────── */
         .topbar {
@@ -288,12 +354,30 @@
             width: 32px; height: 32px;
             border-radius: 50%;
             object-fit: cover;
+            cursor: pointer;
         }
+        .user-trigger {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .user-trigger:hover { background: #f5f5f7; }
         .user-name {
             font-size: 0.85rem;
             color: #1d1d1f;
             font-weight: 500;
+            cursor: pointer;
         }
+        .user-arrow {
+            font-size: 0.7rem;
+            color: #86868b;
+            transition: transform 0.2s;
+        }
+        .user-arrow.open { transform: rotate(180deg); }
         .user-generations {
             font-size: 0.75rem;
             color: #86868b;
@@ -425,10 +509,46 @@
             <button class="btn-auth btn-auth-primary" id="btn-register" onclick="showModal('register')">Registrati</button>
         </div>
         <div class="topbar-user" id="topbar-user" style="display:none">
-            <img id="user-avatar" class="user-avatar" src="" alt="">
-            <span id="user-name" class="user-name"></span>
-            <span class="user-generations" id="user-generations"></span>
+            <div class="user-trigger" onclick="toggleProfile()">
+                <img id="user-avatar" class="user-avatar" src="" alt="">
+                <span id="user-name" class="user-name"></span>
+                <span class="user-generations" id="user-generations"></span>
+                <span class="user-arrow">▾</span>
+            </div>
             <button class="btn-auth" onclick="logout()">Esci</button>
+        </div>
+    </div>
+
+    <!-- ── Profile Panel ────────────────────────────────────── -->
+    <div class="profile-panel" id="profile-panel">
+        <div class="profile-header">
+            <img id="profile-avatar" src="" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><circle cx=%2232%22 cy=%2232%22 r=%2232%22 fill=%22%23e8e8ed%22/><text x=%2232%22 y=%2240%22 text-anchor=%22middle%22 font-size=%2232%22 fill=%22%2386868b%22>?</text></svg>'">
+            <div>
+                <div class="profile-name" id="profile-name"></div>
+                <div class="profile-email" id="profile-email"></div>
+            </div>
+        </div>
+        <div class="profile-body">
+            <div class="profile-row">
+                <span class="profile-label">Piano</span>
+                <span class="profile-value" id="profile-plan"></span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-label">Descrizioni rimaste</span>
+                <span class="profile-value" id="profile-remaining"></span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-label">Rinnovo</span>
+                <span class="profile-value" id="profile-renewal"></span>
+            </div>
+            <div class="profile-row">
+                <span class="profile-label">Registrato dal</span>
+                <span class="profile-value" id="profile-since"></span>
+            </div>
+        </div>
+        <div class="profile-footer">
+            <a href="/pricing" class="profile-btn">Vedi piani ➤</a>
+            <button class="profile-btn profile-btn-outline" onclick="logout(); toggleProfile();">Esci</button>
         </div>
     </div>
 
@@ -583,6 +703,54 @@
     </style>
     
     <script>
+        // ── Profile Panel ──────────────────────────────────────────
+        function toggleProfile() {
+            const panel = document.getElementById('profile-panel');
+            const arrow = document.querySelector('.user-arrow');
+            panel.classList.toggle('open');
+            if (arrow) arrow.classList.toggle('open');
+            if (panel.classList.contains('open') && currentUser) {
+                loadProfile();
+            }
+        }
+        
+        function loadProfile() {
+            if (!currentUser) return;
+            document.getElementById('profile-avatar').src = currentUser.avatar || '';
+            document.getElementById('profile-name').textContent = currentUser.name;
+            document.getElementById('profile-email').textContent = currentUser.email;
+            
+            const planNames = { free: 'Free', base: 'Base — €9/mese', pro: 'Pro — €29/mese' };
+            document.getElementById('profile-plan').textContent = planNames[currentUser.plan] || 'Free';
+            
+            const remaining = currentUser.remaining !== undefined ? currentUser.remaining : (currentUser.monthly_limit || 3);
+            document.getElementById('profile-remaining').textContent = remaining + '/' + (currentUser.monthly_limit || 3);
+            
+            // Renewal: end of current month
+            const now = new Date();
+            const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            document.getElementById('profile-renewal').textContent = endMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+            
+            // Since
+            if (currentUser.created_at) {
+                const d = new Date(currentUser.created_at);
+                document.getElementById('profile-since').textContent = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+            } else {
+                document.getElementById('profile-since').textContent = '—';
+            }
+        }
+        
+        // Close profile on click outside
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('profile-panel');
+            const trigger = document.querySelector('.user-trigger');
+            if (panel.classList.contains('open') && trigger && !trigger.contains(e.target) && !panel.contains(e.target)) {
+                panel.classList.remove('open');
+                const arrow = document.querySelector('.user-arrow');
+                if (arrow) arrow.classList.remove('open');
+            }
+        });
+
         // ── Chat ────────────────────────────────────────────────────
         let chatHistory = JSON.parse(localStorage.getItem('dc_chat') || '[]');
         
