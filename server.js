@@ -20,7 +20,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 
 // ── Database ──────────────────────────────────────────────────────
 const DB_CONFIG = {
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || '127.0.0.1',
   user: process.env.DB_USER || 'u116036854_hermes',
   password: process.env.DB_PASS || "/6|3J>>*bAAb",
   database: process.env.DB_NAME || 'u116036854_descrivicasadb',
