@@ -125,6 +125,12 @@ app.post('/analyze', upload.array('files', 5), async (req, res) => {
       return res.status(400).json({ error: 'Carica almeno una foto' });
     }
     const result = await describeProperty(req.files.map((f) => f.path));
+    // Cleanup: cancella le foto dopo averle processate
+    for (const f of req.files) {
+      fs.unlink(f.path, (err) => {
+        if (err) console.error('Cleanup error:', err.message);
+      });
+    }
     if (result.error) return res.status(500).json(result);
     res.json({
       description: result.description,
@@ -133,6 +139,14 @@ app.post('/analyze', upload.array('files', 5), async (req, res) => {
     });
   } catch (err) {
     console.error('Analyze error:', err);
+    // Cleanup anche in caso di errore
+    if (req.files) {
+      for (const f of req.files) {
+        fs.unlink(f.path, (e) => {
+          if (e) console.error('Cleanup error:', e.message);
+        });
+      }
+    }
     res.status(500).json({ error: err.message || 'Errore interno' });
   }
 });
