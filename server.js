@@ -218,7 +218,7 @@ app.post('/api/register', async (req, res) => {
     );
 
     const token = jwt.sign({ id: result.insertId, email, name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.status(201).json({ token, user: { id: result.insertId, name, email, plan: 'free' } });
+    res.status(201).json({ token, user: { id: result.insertId, name, email, plan: 'free', monthly_limit: PLAN_LIMITS.free, remaining: PLAN_LIMITS.free } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Errore durante la registrazione' });
@@ -249,7 +249,9 @@ app.post('/api/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, plan: user.plan } });
+    const limit = PLAN_LIMITS[user.plan] || 3;
+    const remaining = Math.max(0, limit - (user.monthly_generations || 0));
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, plan: user.plan, monthly_limit: limit, remaining } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Errore durante il login' });
@@ -295,7 +297,9 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar || picture, plan: user.plan } });
+    const limit = PLAN_LIMITS[user.plan] || 3;
+    const remaining = Math.max(0, limit - (user.monthly_generations || 0));
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar || picture, plan: user.plan, monthly_limit: limit, remaining } });
   } catch (err) {
     console.error('Google auth error:', err);
     res.status(500).json({ error: 'Errore autenticazione Google' });
