@@ -383,7 +383,66 @@ app.post('/analyze', authMiddleware, upload.array('files', 5), async (req, res) 
   }
 });
 
-// ── Health check ──────────────────────────────────────────────────
+// ── Chatbot ───────────────────────────────────────────────────────
+const CHAT_MODEL = process.env.CHAT_MODEL || 'deepseek/deepseek-chat';
+
+const CHAT_SYSTEM = `Sei un assistente virtuale di DescriviCasa.it, un servizio che genera descrizioni immobiliari professionali tramite AI.
+
+Il servizio funziona così:
+- L'utente carica fino a 5 foto di un immobile
+- L'AI analizza le foto e genera una descrizione professionale in italiano
+- Le descrizioni sono adatte per Idealista, Immobiliare.it, Casa.it
+
+PREZZI:
+- Free: 3 descrizioni gratis al mese
+- Base: €9/mese, 50 descrizioni, 5 foto per descrizione
+- Pro: €29/mese, illimitate, 10 foto per descrizione, PDF, API, supporto prioritario
+
+DOMANDE TECNICHE:
+- Serve solo un account email o Google per registrarsi
+- Le foto vengono cancellate automaticamente dopo 4 ore
+- Si può usare da qualsiasi dispositivo (smartphone, tablet, PC)
+
+Rispondi in italiano, sii gentile e professionale. Se non sai qualcosa, indirizza l'utente alla email di supporto.`;
+
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Invia almeno un messaggio' });
+    }
+
+    const resp = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://descrivicasa.it',
+        'X-Title': 'DescriviCasa Chat',
+      },
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        messages: [
+          { role: 'system', content: CHAT_SYSTEM },
+          ...messages.slice(-20), // ultimi 20 messaggi per contesto
+        ],
+        max_tokens: 1024,
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!resp.ok) {
+      return res.status(500).json({ error: 'Errore del chatbot' });
+    }
+
+    const data = await resp.json();
+    res.json({ reply: data.choices[0].message.content, model: data.model });
+  } catch (err) {
+    console.error('Chat error:', err);
+    res.status(500).json({ error: 'Errore del chatbot' });
+  }
+});
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
