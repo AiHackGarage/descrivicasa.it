@@ -87,10 +87,19 @@ async function initDatabase() {
         google_id VARCHAR(255) DEFAULT NULL UNIQUE,
         avatar VARCHAR(500) DEFAULT NULL,
         plan ENUM('free','base','pro') DEFAULT 'free',
+        monthly_generations INT DEFAULT 0,
+        monthly_reset DATE DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+    // Add columns if missing (for existing tables)
+    try {
+      await conn.query(`ALTER TABLE users ADD COLUMN monthly_generations INT DEFAULT 0 AFTER plan`);
+    } catch (_) {}
+    try {
+      await conn.query(`ALTER TABLE users ADD COLUMN monthly_reset DATE DEFAULT NULL AFTER monthly_generations`);
+    } catch (_) {}
     conn.release();
     console.log('✅ Database tables ready');
   } catch (err) {
@@ -296,26 +305,77 @@ app.post('/api/auth/google', async (req, res) => {
 // Ottieni profilo utente
 app.get('/api/me', authMiddleware, async (req, res) => {
   try {
-    const [users] = await pool.query('SELECT id, name, email, avatar, plan, created_at FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await pool.query('SELECT id, name, email, avatar, plan, monthly_generations, monthly_reset, created_at FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
-    res.json({ user: users[0] });
+    const user = users[0];
+    const limit = PLAN_LIMITS[user.plan || 'free'];
+    const remaining = Math.max(0, limit - (user.monthly_generations || 0));
+    // Reset se cambio mese
+    const today = new Date().toISOString().slice(0, 10);
+    const genRemaining = user.monthly_reset !== today ? limit : remaining;
+    res.json({ user: { ...user, monthly_limit: limit, remaining: genRemaining } });
   } catch (err) {
     res.status(500).json({ error: 'Errore profilo' });
   }
 });
 
-// ── Analyze Route ─────────────────────────────────────────────────
-app.post('/analyze', upload.array('files', 5), async (req, res) => {
+// ── Helper: check generations limit ──────────────────────────────
+const PLAN_LIMITS = { free: 3, base: 50, pro: 9999 };
+
+async function checkGenerationLimit(userId, plan) {
+  const [rows] = await pool.query(
+    'SELECT monthly_generations, monthly_reset FROM users WHERE id = ?',
+    [userId]
+  );
+  if (rows.length === 0) return { allowed: false, remaining: 0 };
+
+  const { monthly_generations, monthly_reset } = rows[0];
+  const today = new Date().toISOString().slice(0, 10);
+  const limit = PLAN_LIMITS[plan] || 3;
+
+  // Reset mensile
+  if (monthly_reset !== today) {
+    await pool.query(
+      'UPDATE users SET monthly_generations = 0, monthly_reset = ? WHERE id = ?',
+      [today, userId]
+    );
+    return { allowed: true, remaining: limit };
+  }
+
+  const remaining = Math.max(0, limit - monthly_generations);
+  return { allowed: remaining > 0, remaining };
+}
+
+// ── Analyze Route (protetto) ─────────────────────────────────────
+app.post('/analyze', authMiddleware, upload.array('files', 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'Carica almeno una foto' });
     }
+
+    // Check limit
+    const limitCheck = await checkGenerationLimit(req.user.id, req.user.plan || 'free');
+    if (!limitCheck.allowed) {
+      return res.status(403).json({
+        error: `Hai raggiunto il limite di ${PLAN_LIMITS[req.user.plan || 'free']} descrizioni gratuite. Passa a un piano a pagamento per continuare.`,
+        remaining: 0,
+      });
+    }
+
     const result = await describeProperty(req.files.map((f) => f.path));
     if (result.error) return res.status(500).json(result);
+
+    // Increment counter
+    await pool.query(
+      'UPDATE users SET monthly_generations = monthly_generations + 1 WHERE id = ?',
+      [req.user.id]
+    );
+
     res.json({
       description: result.description,
       images: req.files.map((f) => `/media/uploads/${path.basename(f.path)}`),
       model: result.model || '',
+      remaining: limitCheck.remaining - 1,
     });
   } catch (err) {
     console.error('Analyze error:', err);
