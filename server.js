@@ -142,9 +142,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// ── Serve all HTML routes via index.html (SPA) ────────────────────
-app.get(['/', '/index.html', '/pricing'], (req, res) => {
+// ── Serve HTML routes ─────────────────────────────────────────────
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
+});
+app.get('/index.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+app.get('/pricing', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pricing.html'));
 });
 
 // ── Start ─────────────────────────────────────────────────────────
