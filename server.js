@@ -125,12 +125,6 @@ app.post('/analyze', upload.array('files', 5), async (req, res) => {
       return res.status(400).json({ error: 'Carica almeno una foto' });
     }
     const result = await describeProperty(req.files.map((f) => f.path));
-    // Cleanup: cancella le foto dopo averle processate
-    for (const f of req.files) {
-      fs.unlink(f.path, (err) => {
-        if (err) console.error('Cleanup error:', err.message);
-      });
-    }
     if (result.error) return res.status(500).json(result);
     res.json({
       description: result.description,
@@ -139,14 +133,6 @@ app.post('/analyze', upload.array('files', 5), async (req, res) => {
     });
   } catch (err) {
     console.error('Analyze error:', err);
-    // Cleanup anche in caso di errore
-    if (req.files) {
-      for (const f of req.files) {
-        fs.unlink(f.path, (e) => {
-          if (e) console.error('Cleanup error:', e.message);
-        });
-      }
-    }
     res.status(500).json({ error: err.message || 'Errore interno' });
   }
 });
@@ -170,4 +156,31 @@ app.get('/pricing', (req, res) => {
 // ── Start ─────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 DescriviCasa running on http://0.0.0.0:${PORT}`);
+  // Cleanup iniziale all'avvio
+  cleanupOldFiles();
 });
+
+// ── Auto-cleanup: cancella foto ogni 30 min (più vecchie di 4 ore) ─
+const CLEANUP_INTERVAL_MS = 30 * 60 * 1000;   // ogni 30 minuti
+const FILE_MAX_AGE_MS = 4 * 60 * 60 * 1000;    // 4 ore
+
+function cleanupOldFiles() {
+  fs.readdir(UPLOAD_DIR, (err, files) => {
+    if (err) return;
+    const now = Date.now();
+    let deleted = 0;
+    for (const file of files) {
+      const fp = path.join(UPLOAD_DIR, file);
+      try {
+        const stat = fs.statSync(fp);
+        if (now - stat.mtimeMs > FILE_MAX_AGE_MS) {
+          fs.unlinkSync(fp);
+          deleted++;
+        }
+      } catch (_) { /* skip */ }
+    }
+    if (deleted > 0) console.log(`🧹 Cleanup: ${deleted} file eliminati`);
+  });
+}
+
+setInterval(cleanupOldFiles, CLEANUP_INTERVAL_MS);
