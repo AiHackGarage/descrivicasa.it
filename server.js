@@ -328,6 +328,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// ── Debug DB connection ───────────────────────────────────────────
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query('SELECT 1 AS test');
+    conn.release();
+    res.json({ db: 'ok', test: rows[0].test });
+  } catch (err) {
+    res.json({ db: 'error', message: err.message, code: err.code });
+  }
+});
+
 // ── Serve HTML routes ─────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
