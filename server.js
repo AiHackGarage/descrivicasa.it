@@ -89,17 +89,28 @@ async function initDatabase() {
         plan ENUM('free','base','pro') DEFAULT 'free',
         monthly_generations INT DEFAULT 0,
         monthly_reset DATE DEFAULT NULL,
+        marketing_consent BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
     // Add columns if missing (for existing tables)
-    try {
-      await conn.query(`ALTER TABLE users ADD COLUMN monthly_generations INT DEFAULT 0 AFTER plan`);
-    } catch (_) {}
-    try {
-      await conn.query(`ALTER TABLE users ADD COLUMN monthly_reset DATE DEFAULT NULL AFTER monthly_generations`);
-    } catch (_) {}
+    try { await conn.query(`ALTER TABLE users ADD COLUMN monthly_generations INT DEFAULT 0 AFTER plan`); } catch (_) {}
+    try { await conn.query(`ALTER TABLE users ADD COLUMN monthly_reset DATE DEFAULT NULL AFTER monthly_generations`); } catch (_) {}
+    try { await conn.query(`ALTER TABLE users ADD COLUMN marketing_consent BOOLEAN DEFAULT FALSE AFTER monthly_reset`); } catch (_) {}
+
+    // Generations history table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS generations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        description TEXT NOT NULL,
+        image_urls TEXT DEFAULT NULL,
+        model VARCHAR(100) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
     conn.release();
     console.log('✅ Database tables ready');
   } catch (err) {
@@ -197,7 +208,7 @@ async function describeProperty(imagePaths, lang = 'it') {
 // Registrazione con email
 app.post('/api/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, marketing_consent } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Nome, email e password sono obbligatori' });
     }
@@ -213,8 +224,8 @@ app.post('/api/register', async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-      [name, email, hashed]
+      'INSERT INTO users (name, email, password, marketing_consent) VALUES (?, ?, ?, ?)',
+      [name, email, hashed, marketing_consent ? 1 : 0]
     );
 
     const token = jwt.sign({ id: result.insertId, email, name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
@@ -306,7 +317,18 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-// Ottieni profilo utente
+// Ottieni storico descrizioni
+app.get('/api/history', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, description, image_urls, model, created_at FROM generations WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
+      [req.user.id]
+    );
+    res.json({ history: rows.map(r => ({ ...r, image_urls: r.image_urls ? JSON.parse(r.image_urls) : [] })) });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore storico' });
+  }
+});
 app.get('/api/me', authMiddleware, async (req, res) => {
   try {
     const [users] = await pool.query('SELECT id, name, email, avatar, plan, monthly_generations, monthly_reset, created_at FROM users WHERE id = ?', [req.user.id]);
@@ -375,9 +397,16 @@ app.post('/analyze', authMiddleware, upload.array('files', 5), async (req, res) 
       [req.user.id]
     );
 
+    // Save to history
+    const imageUrls = req.files.map((f) => `/media/uploads/${path.basename(f.path)}`);
+    await pool.query(
+      'INSERT INTO generations (user_id, description, image_urls, model) VALUES (?, ?, ?, ?)',
+      [req.user.id, result.description, JSON.stringify(imageUrls), result.model || '']
+    ).catch(err => console.error('Save history error:', err.message));
+
     res.json({
       description: result.description,
-      images: req.files.map((f) => `/media/uploads/${path.basename(f.path)}`),
+      images: imageUrls,
       model: result.model || '',
       remaining: limitCheck.remaining - 1,
     });
