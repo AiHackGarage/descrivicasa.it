@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immobile — DescriviCasa.it</title>
+    <meta name="robots" content="index, follow">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="DescriviCasa.it">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+        .topbar {
+            display: flex; align-items: center; padding: 12px 24px;
+            background: white; border-bottom: 1px solid #e8e8ed;
+        }
+        .topbar-logo {
+            font-size: 1.1rem; font-weight: 700; text-decoration: none; color: #1d1d1f;
+        }
+        .back { margin-left: auto; }
+        .back a {
+            color: #667eea; text-decoration: none; font-size: 0.9rem;
+        }
+        .back a:hover { text-decoration: underline; }
+
+        .hero {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white; padding: 40px 24px; text-align: center;
+        }
+        .hero h1 { font-size: 1.8rem; margin-bottom: 6px; }
+        .hero .price {
+            font-size: 2rem; font-weight: 700; margin-top: 10px;
+        }
+        .hero .price small {
+            font-size: 1rem; font-weight: 400; opacity: 0.8;
+        }
+        .hero .address { font-size: 0.95rem; opacity: 0.8; margin-top: 6px; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+
+        .photo-gallery {
+            margin: 24px auto; max-width: 960px; padding: 0 16px;
+        }
+        .photo-main {
+            width: 100%; height: 400px; object-fit: cover; border-radius: 16px;
+            cursor: pointer; transition: transform 0.2s;
+        }
+        .photo-main:hover { transform: scale(1.01); }
+        .photo-thumbs {
+            display: flex; gap: 8px; margin-top: 8px; overflow-x: auto;
+        }
+        .photo-thumbs img {
+            width: 80px; height: 60px; object-fit: cover; border-radius: 8px;
+            cursor: pointer; opacity: 0.7; transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .photo-thumbs img:hover, .photo-thumbs img.active { opacity: 1; }
+
+        .layout {
+            display: grid; grid-template-columns: 1fr 320px; gap: 24px;
+            max-width: 960px; margin: 24px auto; padding: 0 16px;
+        }
+
+        .main-col { min-width: 0; }
+        .side-col { position: sticky; top: 24px; align-self: start; }
+
+        .card {
+            background: white; border-radius: 16px; padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.1rem; margin-bottom: 16px; color: #1d1d1f;
+        }
+
+        .description-box {
+            background: #f8f8fa; border-radius: 12px; padding: 20px;
+            line-height: 1.8; font-size: 0.95rem; white-space: pre-wrap;
+        }
+
+        .features-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+        }
+        .feature-item {
+            display: flex; justify-content: space-between; padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0; font-size: 0.9rem;
+        }
+        .feature-item .label { color: #86868b; }
+        .feature-item .value { font-weight: 500; }
+
+        #map { height: 250px; border-radius: 12px; margin-bottom: 20px; }
+
+        .agent-card {
+            text-align: center; padding: 20px;
+        }
+        .agent-avatar {
+            width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+            margin-bottom: 10px;
+        }
+        .agent-name { font-weight: 600; font-size: 1rem; }
+        .agent-email { font-size: 0.85rem; color: #667eea; text-decoration: none; display: block; margin-top: 4px; }
+
+        .btn-contact {
+            display: block; width: 100%; margin-top: 12px; padding: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; border-radius: 12px;
+            font-size: 1rem; font-weight: 600; cursor: pointer; text-decoration: none;
+            text-align: center;
+        }
+        .btn-contact:hover { opacity: 0.9; }
+
+        .share-buttons {
+            display: flex; gap: 8px; margin-top: 12px; justify-content: center;
+        }
+        .share-btn {
+            width: 40px; height: 40px; border-radius: 50%; border: none;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.1rem; transition: transform 0.15s; text-decoration: none;
+        }
+        .share-btn:hover { transform: scale(1.1); }
+        .share-btn.fb { background: #1877f2; }
+        .share-btn.tw { background: #000; }
+        .share-btn.wa { background: #25d366; }
+        .share-btn.lk { background: #0a66c2; }
+
+        .footer { text-align: center; padding: 32px; color: #86868b; font-size: 0.85rem; }
+
+        .loading {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 60vh; flex-direction: column; gap: 16px;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid #e0e0e0;
+            border-top: 4px solid #667eea; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-page { text-align: center; padding: 80px 20px; }
+        .error-page h2 { font-size: 1.5rem; margin-bottom: 12px; }
+        .error-page p { color: #86868b; }
+
+        @media (max-width: 768px) {
+            .layout { grid-template-columns: 1fr; }
+            .side-col { position: static; }
+            .photo-main { height: 250px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 1.4rem; }
+            .hero .price { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="/" class="topbar-logo">🏠 DescriviCasa.it</a>
+        <div class="back"><a href="/">← Torna al sito</a></div>
+    </div>
+
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Caricamento immobile...</p>
+    </div>
+
+    <div id="error-page" class="error-page" style="display:none">
+        <h2>😕 Immobile non trovato</h2>
+        <p>Questo link potrebbe essere scaduto o l'immobile è stato rimosso.</p>
+        <p style="margin-top:12px"><a href="/" style="color:#667eea">Torna a DescriviCasa.it</a></p>
+    </div>
+
+    <div id="property-content" style="display:none">
+        <div class="hero" id="hero-section">
+            <h1 id="prop-title"></h1>
+            <p class="address" id="prop-address"></p>
+            <div class="price" id="prop-price"></div>
+        </div>
+
+        <div class="photo-gallery" id="photo-gallery">
+            <img id="main-photo" class="photo-main" src="" alt="Foto immobile">
+            <div class="photo-thumbs" id="photo-thumbs"></div>
+        </div>
+
+        <div class="layout">
+            <div class="main-col">
+                <div class="card" id="desc-card">
+                    <h2>📝 Descrizione</h2>
+                    <div class="description-box" id="prop-description"></div>
+                </div>
+
+                <div class="card">
+                    <h2>🏷️ Caratteristiche</h2>
+                    <div class="features-grid" id="features-grid"></div>
+                </div>
+
+                <div class="card">
+                    <h2>📍 Posizione</h2>
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <div class="side-col">
+                <div class="card agent-card">
+                    <img id="agent-avatar" class="agent-avatar" src="" alt="">
+                    <div class="agent-name" id="agent-name"></div>
+                    <a id="agent-email" class="agent-email" href=""></a>
+
+                    <a id="contact-btn" class="btn-contact" href="">📞 Contatta l'agenzia</a>
+
+                    <div class="share-buttons">
+                        <a class="share-btn fb" id="share-fb" href="#" target="_blank" title="Facebook">f</a>
+                        <a class="share-btn tw" id="share-tw" href="#" target="_blank" title="X">𝕏</a>
+                        <a class="share-btn wa" id="share-wa" href="#" target="_blank" title="WhatsApp">📱</a>
+                        <button class="share-btn lk" onclick="copyLink()" title="Copia link" style="background:#667eea;font-size:0.8rem">🔗</button>
+                    </div>
+                    <p id="copied-msg" style="font-size:0.8rem;color:#34c759;margin-top:6px;display:none">✅ Link copiato!</p>
+                </div>
+
+                <div class="card" style="font-size:0.85rem;color:#86868b;text-align:center">
+                    Generato con 🤖 DescriviCasa.it
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        DescriviCasa.it &copy; 2026 &mdash; Annunci immobiliari professionali con AI
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const uuid = window.location.pathname.split('/').pop();
+        const BASE = 'https://descrivicasa.it';
+
+        function formatPrice(price, contract) {
+            if (!price) return '';
+            const n = Number(price).toLocaleString('it-IT');
+            return '€ ' + n + (contract === 'rent' ? ' /mese' : '');
+        }
+
+        function propertyTypeLabel(t) {
+            const labels = {
+                apartment: 'Appartamento', villa: 'Villa', townhouse: 'Schiera',
+                loft: 'Loft', penthouse: 'Attico', studio: 'Monolocale',
+                office: 'Ufficio', commercial: 'Negozi e locali', land: 'Terreno',
+                warehouse: 'Magazzino', garage: 'Box auto', building: 'Fabbricato',
+            };
+            return labels[t] || t;
+        }
+
+        function translateHeating(h) {
+            const m = { autonomous: 'Autonomo', centralized: 'Centralizzato', underfloor: 'Radiante', wood: 'Stufa legna' };
+            return m[h] || h;
+        }
+
+        function translateState(s) {
+            const m = { new: 'Nuovo', renovated: 'Ristrutturato', habitable: 'Abitabile', to_renovate: 'Da ristrutturare', project: 'In progetto' };
+            return m[s] || s;
+        }
+
+        function translateFurnished(f) {
+            const m = { yes: 'Arredato', no: 'Non arredato', partial: 'Parzialmente arredato' };
+            return m[f] || f;
+        }
+
+        fetch('/api/p/' + uuid)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                const p = data.property;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('property-content').style.display = 'block';
+
+                // SEO meta
+                const title = p.title || propertyTypeLabel(p.property_type) + (p.city ? ' in ' + p.city : '');
+                document.title = title + ' — DescriviCasa.it';
+                document.querySelector('meta[property="og:title"]').content = title;
+                if (p.description) document.querySelector('meta[name="description"]').content = p.description.slice(0, 200);
+                if (p.photos && p.photos[0]) {
+                    const m = document.createElement('meta');
+                    m.setAttribute('property', 'og:image');
+                    m.content = BASE + p.photos[0];
+                    document.head.appendChild(m);
+                }
+
+                document.getElementById('prop-title').textContent = title;
+                const addrParts = [p.address, p.city, p.province].filter(Boolean);
+                document.getElementById('prop-address').textContent = addrParts.join(', ') || 'Posizione disponibile su richiesta';
+                document.getElementById('prop-price').innerHTML = formatPrice(p.price, p.contract_type);
+
+                // Photos
+                if (p.photos && p.photos.length > 0) {
+                    document.getElementById('main-photo').src = p.photos[0];
+                    const thumbs = document.getElementById('photo-thumbs');
+                    p.photos.forEach((url, i) => {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = 'Foto ' + (i + 1);
+                        if (i === 0) img.className = 'active';
+                        img.onclick = () => {
+                            document.getElementById('main-photo').src = url;
+                            document.querySelectorAll('.photo-thumbs img').forEach(el => el.classList.remove('active'));
+                            img.classList.add('active');
+                        };
+                        thumbs.appendChild(img);
+                    });
+                } else {
+                    document.getElementById('photo-gallery').style.display = 'none';
+                }
+
+                // Description
+                document.getElementById('prop-description').textContent = p.description || 'Descrizione in preparazione.';
+
+                // Features
+                const features = [];
+                if (p.surface) features.push(['Superficie', p.surface + ' mq']);
+                if (p.rooms) features.push(['Locali', p.rooms]);
+                if (p.bedrooms) features.push(['Camere', p.bedrooms]);
+                if (p.bathrooms) features.push(['Bagni', p.bathrooms]);
+                if (p.floor !== null && p.floor !== undefined) features.push(['Piano', p.floor + (p.total_floors ? '/' + p.total_floors : '') + (p.elevator ? ' con asc.' : '')]);
+                if (p.building_state) features.push(['Stato', translateState(p.building_state)]);
+                if (p.energy_class) features.push(['Classe energetica', p.energy_class + (p.energy_index ? ' (' + p.energy_index + ')' : '')]);
+                if (p.heating) features.push(['Riscaldamento', translateHeating(p.heating)]);
+                if (p.air_conditioning) features.push(['Aria condizionata', 'Sì']);
+                if (p.exposure) features.push(['Esposizione', p.exposure]);
+                if (p.balcony_sqm) features.push(['Balcone/Terrazzo', p.balcony_sqm + ' mq']);
+                if (p.garden_sqm) features.push(['Giardino', p.garden_sqm + ' mq']);
+                if (p.parking) features.push(['Posto auto', 'Sì']);
+                if (p.basement) features.push(['Cantina', 'Sì']);
+                if (p.furnished && p.furnished !== 'no') features.push(['Arredato', translateFurnished(p.furnished)]);
+                if (p.year_built) features.push(['Anno costruzione', p.year_built]);
+                if (p.condo_fees) features.push(['Spese condominiali', '€ ' + Number(p.condo_fees).toLocaleString('it-IT') + '/mese']);
+
+                const grid = document.getElementById('features-grid');
+                if (features.length === 0) {
+                    grid.innerHTML = '<p style="color:#86868b;font-size:0.9rem">Caratteristiche in fase di inserimento.</p>';
+                } else {
+                    features.forEach(([label, value]) => {
+                        const div = document.createElement('div');
+                        div.className = 'feature-item';
+                        div.innerHTML = '<span class="label">' + label + '</span><span class="value">' + value + '</span>';
+                        grid.appendChild(div);
+                    });
+                }
+
+                // Map
+                if (p.latitude && p.longitude) {
+                    const map = L.map('map').setView([p.latitude, p.longitude], 15);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap',
+                    }).addTo(map);
+                    L.marker([p.latitude, p.longitude]).addTo(map);
+                } else {
+                    document.getElementById('map').style.display = 'none';
+                }
+
+                // Agent
+                if (p.agent_name) {
+                    document.getElementById('agent-name').textContent = p.agent_name;
+                    document.getElementById('agent-avatar').src = p.agent_avatar || '';
+                    document.getElementById('agent-email').textContent = p.agent_email || '';
+                    document.getElementById('agent-email').href = 'mailto:' + (p.agent_email || '');
+                    document.getElementById('contact-btn').href = 'mailto:' + (p.agent_email || '') + '?subject=Richiesta informazioni: ' + encodeURIComponent(title);
+                } else {
+                    document.querySelector('.agent-card .agent-name').textContent = 'Agenzia Immobiliare';
+                }
+
+                // Share buttons
+                const pageUrl = BASE + '/p/' + uuid;
+                const shareText = title + ' — ' + formatPrice(p.price, p.contract_type);
+                document.getElementById('share-fb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl) + '&quote=' + encodeURIComponent(shareText);
+                document.getElementById('share-tw').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText) + '&url=' + encodeURIComponent(pageUrl);
+                document.getElementById('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + pageUrl);
+            })
+            .catch(err => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-page').style.display = 'block';
+                console.error(err);
+            });
+
+        function copyLink() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                const msg = document.getElementById('copied-msg');
+                msg.style.display = 'block';
+                setTimeout(() => msg.style.display = 'none', 2000);
+            });
+        }
+    </script>
+</body>
+</html>

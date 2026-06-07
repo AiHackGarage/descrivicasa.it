@@ -111,6 +111,67 @@ async function initDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+    // Properties table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS properties (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        uuid VARCHAR(36) NOT NULL UNIQUE,
+
+        contract_type ENUM('sell','rent') NOT NULL DEFAULT 'sell',
+        property_type VARCHAR(50) NOT NULL DEFAULT 'apartment',
+
+        address VARCHAR(300) DEFAULT NULL,
+        civic VARCHAR(20) DEFAULT NULL,
+        interno VARCHAR(20) DEFAULT NULL,
+        cap VARCHAR(10) DEFAULT NULL,
+        city VARCHAR(100) DEFAULT NULL,
+        province VARCHAR(50) DEFAULT NULL,
+        zone VARCHAR(200) DEFAULT NULL,
+        latitude DECIMAL(10,7) DEFAULT NULL,
+        longitude DECIMAL(10,7) DEFAULT NULL,
+
+        surface INT DEFAULT NULL,
+        rooms INT DEFAULT NULL,
+        bedrooms INT DEFAULT NULL,
+        bathrooms INT DEFAULT NULL,
+        floor INT DEFAULT NULL,
+        total_floors INT DEFAULT NULL,
+        elevator BOOLEAN DEFAULT FALSE,
+
+        building_state VARCHAR(50) DEFAULT NULL,
+        year_built INT DEFAULT NULL,
+        energy_class VARCHAR(5) DEFAULT NULL,
+        energy_index VARCHAR(20) DEFAULT NULL,
+        heating VARCHAR(50) DEFAULT NULL,
+        air_conditioning BOOLEAN DEFAULT FALSE,
+        exposure VARCHAR(100) DEFAULT NULL,
+        balcony_sqm INT DEFAULT NULL,
+        garden_sqm INT DEFAULT NULL,
+        parking BOOLEAN DEFAULT FALSE,
+        basement BOOLEAN DEFAULT FALSE,
+        furnished VARCHAR(20) DEFAULT 'no',
+
+        price DECIMAL(12,2) DEFAULT NULL,
+        condo_fees DECIMAL(8,2) DEFAULT NULL,
+
+        title VARCHAR(200) DEFAULT NULL,
+        description TEXT DEFAULT NULL,
+        ai_model VARCHAR(100) DEFAULT NULL,
+        photos JSON DEFAULT NULL,
+
+        status ENUM('draft','published','archived') DEFAULT 'draft',
+        is_public BOOLEAN DEFAULT TRUE,
+
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        INDEX idx_uuid (uuid),
+        INDEX idx_user (user_id),
+        INDEX idx_user_status (user_id, status),
+        INDEX idx_public (is_public, status)
+      )
+    `);
     conn.release();
     console.log('✅ Database tables ready');
   } catch (err) {
@@ -498,6 +559,307 @@ app.post('/api/chat', async (req, res) => {
     console.error('Chat error:', err);
     res.status(500).json({ error: 'Errore del chatbot' });
   }
+});
+// ── Property-aware description generator ──────────────────────────
+function buildPropertyPrompt(property) {
+  const t = property.property_type || 'immobile';
+  const contract = property.contract_type === 'rent' ? 'affitto' : 'vendita';
+  return `Analizza attentamente queste foto e scrivi una descrizione professionale completa per questo ${t} in ${contract}, seguendo la STRUTTURA OBBLIGATORIA: TITOLO, DESCRIZIONE in paragrafi, ZONA, CARATTERISTICHE CHIAVE in elenco puntato, CONTATTI. Non aggiungere preamboli. Produci solo la descrizione dell'annuncio.
+
+DATI DELL'IMMOBILE (integrarli nella descrizione):
+${property.address ? `- Indirizzo: ${property.address}${property.civic ? ', ' + property.civic : ''}${property.city ? ', ' + property.city : ''}${property.province ? ' (' + property.province + ')' : ''}` : ''}
+${property.surface ? `- Superficie: ${property.surface} mq` : ''}
+${property.rooms ? `- Locali: ${property.rooms}` : ''}
+${property.bedrooms ? `- Camere: ${property.bedrooms}` : ''}
+${property.bathrooms ? `- Bagni: ${property.bathrooms}` : ''}
+${property.floor !== null && property.floor !== undefined ? `- Piano: ${property.floor}${property.total_floors ? '/' + property.total_floors : ''}${property.elevator ? ' con ascensore' : ''}` : ''}
+${property.building_state ? `- Stato: ${property.building_state}` : ''}
+${property.energy_class ? `- Classe energetica: ${property.energy_class}${property.energy_index ? ' (' + property.energy_index + ')' : ''}` : ''}
+${property.heating ? `- Riscaldamento: ${property.heating}` : ''}
+${property.balcony_sqm ? `- Balcone/Terrazzo: ${property.balcony_sqm} mq` : ''}
+${property.garden_sqm ? `- Giardino: ${property.garden_sqm} mq` : ''}
+${property.parking ? '- Posto auto: sì' : ''}
+${property.air_conditioning ? '- Condizionamento: sì' : ''}
+${property.furnished && property.furnished !== 'no' ? `- Arredato: ${property.furnished}` : ''}
+${property.year_built ? `- Anno di costruzione: ${property.year_built}` : ''}
+${property.price ? `- Prezzo: € ${Number(property.price).toLocaleString('it-IT')}${contract === 'affitto' ? '/mese' : ''}` : ''}
+
+Intreccia questi dati nella descrizione in modo naturale, non fare un semplice elenco. La descrizione deve sembrare scritta da un'agenzia immobiliare professionista.`;
+}
+
+async function describePropertyWithData(imagePaths, propertyData) {
+  const content = [];
+  const systemContent = SYSTEM_PROMPT;
+  const userText = buildPropertyPrompt(propertyData);
+  content.push({ type: 'text', text: userText });
+
+  for (const fp of imagePaths) {
+    if (!fs.existsSync(fp)) continue;
+    const b64 = encodeImage(fp);
+    const ext = path.extname(fp).toLowerCase().replace('.', '');
+    content.push({
+      type: 'image_url',
+      image_url: { url: `data:${getMime(ext)};base64,${b64}` },
+    });
+  }
+
+  const resp = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://descrivicasa.it',
+      'X-Title': 'DescriviCasa',
+    },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      messages: [
+        { role: 'system', content: systemContent },
+        { role: 'user', content },
+      ],
+      max_tokens: 2048,
+      temperature: 0.7,
+    }),
+    signal: AbortSignal.timeout(120000),
+  });
+
+  if (!resp.ok) {
+    return { error: `API error ${resp.status}: ${await resp.text()}` };
+  }
+
+  const data = await resp.json();
+  try {
+    return {
+      description: data.choices[0].message.content,
+      model: data.model || VISION_MODEL,
+      tokens: data.usage || {},
+    };
+  } catch (e) {
+    return { error: 'Unexpected API response', raw: data };
+  }
+}
+
+// ── Properties CRUD ───────────────────────────────────────────────
+
+// Create property
+app.post('/api/properties', authMiddleware, upload.array('files', 10), async (req, res) => {
+  try {
+    const data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : (req.body.data || req.body);
+    const uuid = uuidv4();
+    const photoUrls = req.files ? req.files.map(f => `/media/uploads/${path.basename(f.path)}`) : [];
+
+    await pool.query(`
+      INSERT INTO properties (
+        uuid, user_id, contract_type, property_type,
+        address, civic, cap, city, province, zone, latitude, longitude,
+        surface, rooms, bedrooms, bathrooms, floor, total_floors, elevator,
+        building_state, year_built, energy_class, energy_index, heating, air_conditioning,
+        exposure, balcony_sqm, garden_sqm, parking, basement, furnished,
+        price, condo_fees, photos, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      uuid, req.user.id, data.contract_type || 'sell', data.property_type || 'apartment',
+      data.address || null, data.civic || null, data.cap || null, data.city || null,
+      data.province || null, data.zone || null, data.latitude || null, data.longitude || null,
+      data.surface || null, data.rooms || null, data.bedrooms || null, data.bathrooms || null,
+      data.floor ?? null, data.total_floors || null, data.elevator ? 1 : 0,
+      data.building_state || null, data.year_built || null, data.energy_class || null,
+      data.energy_index || null, data.heating || null, data.air_conditioning ? 1 : 0,
+      data.exposure || null, data.balcony_sqm || null, data.garden_sqm || null,
+      data.parking ? 1 : 0, data.basement ? 1 : 0, data.furnished || 'no',
+      data.price || null, data.condo_fees || null,
+      photoUrls.length > 0 ? JSON.stringify(photoUrls) : null,
+      data.status || 'draft',
+    ]);
+
+    res.status(201).json({ uuid, message: 'Immobile creato' });
+  } catch (err) {
+    console.error('Create property error:', err);
+    res.status(500).json({ error: err.message || 'Errore creazione immobile' });
+  }
+});
+
+// List user's properties
+app.get('/api/properties', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, uuid, contract_type, property_type, address, city, province, surface, rooms, bathrooms, price, status, is_public, title, description IS NOT NULL AS has_description, created_at, updated_at FROM properties WHERE user_id = ? ORDER BY updated_at DESC',
+      [req.user.id]
+    );
+    res.json({ properties: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single property
+app.get('/api/properties/:id', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM properties WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
+    const p = rows[0];
+    p.photos = p.photos ? JSON.parse(p.photos) : [];
+    p.elevator = !!p.elevator;
+    p.air_conditioning = !!p.air_conditioning;
+    p.parking = !!p.parking;
+    p.basement = !!p.basement;
+    p.is_public = !!p.is_public;
+    res.json({ property: p });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update property
+app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async (req, res) => {
+  try {
+    const data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : (req.body.data || req.body);
+    const existing = await pool.query('SELECT photos FROM properties WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (existing[0].length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
+
+    let existingPhotos = [];
+    try { existingPhotos = existing[0][0].photos ? JSON.parse(existing[0][0].photos) : []; } catch (_) {}
+
+    if (req.files && req.files.length > 0) {
+      const newPhotos = req.files.map(f => `/media/uploads/${path.basename(f.path)}`);
+      existingPhotos = [...existingPhotos, ...newPhotos];
+    }
+
+    await pool.query(`
+      UPDATE properties SET
+        contract_type=?, property_type=?, address=?, civic=?, cap=?, city=?,
+        province=?, zone=?, latitude=?, longitude=?, surface=?, rooms=?,
+        bedrooms=?, bathrooms=?, floor=?, total_floors=?, elevator=?,
+        building_state=?, year_built=?, energy_class=?, energy_index=?,
+        heating=?, air_conditioning=?, exposure=?, balcony_sqm=?, garden_sqm=?,
+        parking=?, basement=?, furnished=?, price=?, condo_fees=?, photos=?,
+        status=?, title=?, description=?
+      WHERE id=? AND user_id=?
+    `, [
+      data.contract_type || 'sell', data.property_type || 'apartment',
+      data.address || null, data.civic || null, data.cap || null, data.city || null,
+      data.province || null, data.zone || null, data.latitude || null, data.longitude || null,
+      data.surface || null, data.rooms || null, data.bedrooms || null, data.bathrooms || null,
+      data.floor ?? null, data.total_floors || null, data.elevator ? 1 : 0,
+      data.building_state || null, data.year_built || null, data.energy_class || null,
+      data.energy_index || null, data.heating || null, data.air_conditioning ? 1 : 0,
+      data.exposure || null, data.balcony_sqm || null, data.garden_sqm || null,
+      data.parking ? 1 : 0, data.basement ? 1 : 0, data.furnished || 'no',
+      data.price || null, data.condo_fees || null,
+      existingPhotos.length > 0 ? JSON.stringify(existingPhotos) : null,
+      data.status || 'draft', data.title || null, data.description || null,
+      req.params.id, req.user.id,
+    ]);
+
+    res.json({ message: 'Immobile aggiornato' });
+  } catch (err) {
+    console.error('Update property error:', err);
+    res.status(500).json({ error: err.message || 'Errore aggiornamento' });
+  }
+});
+
+// Delete property
+app.delete('/api/properties/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM properties WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    res.json({ message: 'Immobile eliminato' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate description for a property (with photos + data)
+app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 10), async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM properties WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
+
+    const property = rows[0];
+    let photos = property.photos ? JSON.parse(property.photos) : [];
+
+    // If new files uploaded, add them
+    if (req.files && req.files.length > 0) {
+      const newPhotos = req.files.map(f => `/media/uploads/${path.basename(f.path)}`);
+      photos = [...photos, ...newPhotos];
+    }
+
+    if (photos.length === 0) {
+      return res.status(400).json({ error: 'Carica almeno una foto per generare la descrizione' });
+    }
+
+    // Check generation limit
+    const limitCheck = await checkGenerationLimit(req.user.id, req.user.plan || 'free');
+    if (!limitCheck.allowed) {
+      return res.status(403).json({
+        error: `Hai raggiunto il limite di ${PLAN_LIMITS[req.user.plan || 'free']} descrizioni gratuite.`,
+        remaining: 0,
+      });
+    }
+
+    // Convert photo URLs to local file paths
+    const filePaths = photos.map(url => path.join(__dirname, 'uploads', path.basename(url))).filter(fs.existsSync);
+
+    const result = await describePropertyWithData(filePaths, property);
+    if (result.error) return res.status(500).json(result);
+
+    // Increment counter
+    await pool.query('UPDATE users SET monthly_generations = monthly_generations + 1 WHERE id = ?', [req.user.id]);
+
+    // Save to history
+    await pool.query(
+      'INSERT INTO generations (user_id, description, image_urls, model) VALUES (?, ?, ?, ?)',
+      [req.user.id, result.description, JSON.stringify(photos), result.model || '']
+    ).catch(() => {});
+
+    // Update property with description
+    await pool.query('UPDATE properties SET description = ?, ai_model = ?, photos = ?, status = ? WHERE id = ?',
+      [result.description, result.model || '', JSON.stringify(photos), 'published', req.params.id]);
+
+    res.json({
+      description: result.description,
+      model: result.model || '',
+      photos,
+      remaining: limitCheck.remaining - 1,
+      propertyId: req.params.id,
+      uuid: property.uuid,
+    });
+  } catch (err) {
+    console.error('Generate error:', err);
+    res.status(500).json({ error: err.message || 'Errore generazione' });
+  }
+});
+
+// Public property page (no auth required)
+app.get('/api/p/:uuid', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT p.*, u.name AS agent_name, u.email AS agent_email, u.avatar AS agent_avatar
+       FROM properties p JOIN users u ON p.user_id = u.id
+       WHERE p.uuid = ? AND p.is_public = TRUE AND p.status IN ('published','draft')`,
+      [req.params.uuid]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
+
+    const p = rows[0];
+    p.photos = p.photos ? JSON.parse(p.photos) : [];
+    p.elevator = !!p.elevator;
+    p.air_conditioning = !!p.air_conditioning;
+    p.parking = !!p.parking;
+    p.basement = !!p.basement;
+    p.is_public = true;
+
+    res.json({ property: p });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve public property pages
+app.get('/p/:uuid', (req, res) => {
+  res.sendFile(path.join(__dirname, 'property.html'));
 });
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
