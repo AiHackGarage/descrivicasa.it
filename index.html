@@ -365,6 +365,7 @@
         .view { display: none; }
         .view.active { display: block; animation: fadeIn 0.25s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
 
         /* ── Landing ──────────────────────────────────────── */
         .landing-header {
@@ -1426,7 +1427,7 @@
                 });
                 const data = await res.json();
                 if (data.error) { content.innerHTML = '<div class="error-msg show">' + data.error + '</div>'; return; }
-                const properties = data.properties || data || [];
+                const properties = (data && data.properties) ? data.properties : (Array.isArray(data) ? data : []);
                 const arr = Array.isArray(properties) ? properties : [];
                 if (arr.length === 0) {
                     content.innerHTML = '<div class="dashboard-empty"><div class="big-icon">🏠</div><p>Nessun immobile ancora inserito.</p><button class="btn-primary" onclick="newProperty()">➕ Aggiungi il primo immobile</button></div>';
@@ -1644,6 +1645,9 @@
             } else {
                 nav.innerHTML += '<div></div>';
             }
+            if (step < 5) {
+                nav.innerHTML += '<button class="btn-next" onclick="nextStep()">Avanti →</button>';
+            }
             container.appendChild(nav);
 
             // Post-render for map in step 2
@@ -1690,17 +1694,17 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Indirizzo</label>
-                        <input type="text" value="${escapeHtml(d.address)}" onchange="editorState.data.address=this.value" placeholder="Via Roma, 12">
+                        <input type="text" value="${escapeHtml(d.address)}" onchange="editorState.data.address=this.value" placeholder="es. Via Roma, 12">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Città</label>
-                        <input type="text" value="${escapeHtml(d.city)}" onchange="editorState.data.city=this.value" placeholder="Roma">
+                        <input type="text" value="${escapeHtml(d.city)}" onchange="editorState.data.city=this.value" placeholder="es. Roma">
                     </div>
                     <div class="form-group">
                         <label>Provincia</label>
-                        <input type="text" value="${escapeHtml(d.province)}" onchange="editorState.data.province=this.value" placeholder="RM">
+                        <input type="text" value="${escapeHtml(d.province)}" onchange="editorState.data.province=this.value" placeholder="es. RM">
                     </div>
                 </div>
                 <div id="map"></div>
@@ -1737,7 +1741,12 @@
         function initEditorMap() {
             const mapDiv = document.getElementById('map');
             if (!mapDiv) return;
-            if (editorMap) { editorMap.invalidateSize(); return; }
+            // Remove old map instance if it exists (DOM was recreated)
+            if (editorMap) {
+                try { editorMap.remove(); } catch(e) {}
+                editorMap = null;
+                editorMarker = null;
+            }
             const d = editorState.data;
             editorMap = L.map('map').setView([d.lat, d.lng], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1749,7 +1758,8 @@
                 const pos = e.target.getLatLng();
                 editorState.data.lat = pos.lat;
                 editorState.data.lng = pos.lng;
-                document.querySelector('.map-coords').innerHTML = 'Lat: ' + pos.lat.toFixed(5) + ', Lng: ' + pos.lng.toFixed(5) +
+                const mc = document.querySelector('.map-coords');
+                if (mc) mc.innerHTML = 'Lat: ' + pos.lat.toFixed(5) + ', Lng: ' + pos.lng.toFixed(5) +
                     '<br><button class="btn-secondary" onclick="searchOnMap()" style="margin-top:6px;padding:6px 16px;font-size:0.85rem">🔍 Cerca sulla mappa</button>';
             });
             editorMap.on('click', (e) => {
@@ -1758,7 +1768,8 @@
                 editorState.data.lng = pos.lng;
                 if (editorMarker) editorMarker.setLatLng(pos);
                 else editorMarker = L.marker(pos, { draggable: true }).addTo(editorMap);
-                document.querySelector('.map-coords').innerHTML = 'Lat: ' + pos.lat.toFixed(5) + ', Lng: ' + pos.lng.toFixed(5) +
+                const mc = document.querySelector('.map-coords');
+                if (mc) mc.innerHTML = 'Lat: ' + pos.lat.toFixed(5) + ', Lng: ' + pos.lng.toFixed(5) +
                     '<br><button class="btn-secondary" onclick="searchOnMap()" style="margin-top:6px;padding:6px 16px;font-size:0.85rem">🔍 Cerca sulla mappa</button>';
             });
         }
@@ -1769,14 +1780,14 @@
                 <h2>📐 Caratteristiche</h2>
                 <p class="sub">Dimensioni e caratteristiche principali dell'immobile</p>
                 <div class="form-row three">
-                    <div class="form-group"><label>Superficie (mq)</label><input type="number" value="${d.surface}" onchange="editorState.data.surface=this.value" placeholder="100"></div>
-                    <div class="form-group"><label>Locali</label><input type="number" value="${d.rooms}" onchange="editorState.data.rooms=this.value" placeholder="5"></div>
-                    <div class="form-group"><label>Camere da letto</label><input type="number" value="${d.bedrooms}" onchange="editorState.data.bedrooms=this.value" placeholder="2"></div>
+                    <div class="form-group"><label>Superficie (mq)</label><input type="number" value="${d.surface}" onchange="editorState.data.surface=this.value" placeholder="es. 100"></div>
+                    <div class="form-group"><label>Locali</label><input type="number" value="${d.rooms}" onchange="editorState.data.rooms=this.value" placeholder="es. 5"></div>
+                    <div class="form-group"><label>Camere da letto</label><input type="number" value="${d.bedrooms}" onchange="editorState.data.bedrooms=this.value" placeholder="es. 2"></div>
                 </div>
                 <div class="form-row three">
-                    <div class="form-group"><label>Bagni</label><input type="number" value="${d.bathrooms}" onchange="editorState.data.bathrooms=this.value" placeholder="2"></div>
-                    <div class="form-group"><label>Piano</label><input type="number" value="${d.floor}" onchange="editorState.data.floor=this.value" placeholder="3"></div>
-                    <div class="form-group"><label>Totale piani</label><input type="number" value="${d.total_floors}" onchange="editorState.data.total_floors=this.value" placeholder="6"></div>
+                    <div class="form-group"><label>Bagni</label><input type="number" value="${d.bathrooms}" onchange="editorState.data.bathrooms=this.value" placeholder="es. 2"></div>
+                    <div class="form-group"><label>Piano</label><input type="number" value="${d.floor}" onchange="editorState.data.floor=this.value" placeholder="es. 3"></div>
+                    <div class="form-group"><label>Totale piani</label><input type="number" value="${d.total_floors}" onchange="editorState.data.total_floors=this.value" placeholder="es. 6"></div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -1819,9 +1830,9 @@
                     </div>
                 </div>
                 <div class="form-row three">
-                    <div class="form-group"><label>Esposizione</label><input type="text" value="${escapeHtml(d.exposure)}" onchange="editorState.data.exposure=this.value" placeholder="Nord, Sud"></div>
-                    <div class="form-group"><label>Balcone/Terrazzo (mq)</label><input type="number" value="${d.balcony}" onchange="editorState.data.balcony=this.value" placeholder="20"></div>
-                    <div class="form-group"><label>Giardino (mq)</label><input type="number" value="${d.garden}" onchange="editorState.data.garden=this.value" placeholder="50"></div>
+                    <div class="form-group"><label>Esposizione</label><input type="text" value="${escapeHtml(d.exposure)}" onchange="editorState.data.exposure=this.value" placeholder="es. Nord, Sud"></div>
+                    <div class="form-group"><label>Balcone/Terrazzo (mq)</label><input type="number" value="${d.balcony}" onchange="editorState.data.balcony=this.value" placeholder="es. 20"></div>
+                    <div class="form-group"><label>Giardino (mq)</label><input type="number" value="${d.garden}" onchange="editorState.data.garden=this.value" placeholder="es. 50"></div>
                 </div>
                 <div class="form-row three">
                     <div class="form-group">
@@ -1842,7 +1853,7 @@
                             ).join('')}
                         </select>
                     </div>
-                    <div class="form-group"><label>Anno costruzione</label><input type="number" value="${d.year_built}" onchange="editorState.data.year_built=this.value" placeholder="2005" min="1800" max="2030"></div>
+                    <div class="form-group"><label>Anno costruzione</label><input type="number" value="${d.year_built}" onchange="editorState.data.year_built=this.value" placeholder="es. 2005" min="1800" max="2030"></div>
                 </div>
             `;
         }
@@ -1866,9 +1877,10 @@
                 <input type="file" id="photo-input" multiple accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
                 ${photosHtml}
                 <div style="text-align:center;margin-top:20px;">
-                    <button class="btn-generate" id="btn-create-page" onclick="createAndPublish()">
-                        ${photosCount > 0 ? '✅ ' + photosCount + ' foto caricate — Crea Pagina' : '📸 Carica le foto e crea pagina'}
-                    </button>
+                    ${photosCount > 0
+                      ? '<button class="btn-generate" id="btn-create-page" onclick="createAndPublish()" style="animation:pulse 2s infinite">✅ ' + photosCount + ' foto caricate — Crea Pagina</button>'
+                      : '<p style="color:#86868b;font-size:0.9rem">👉 Carica le foto sopra, poi clicca qui per creare la pagina</p><button class="btn-generate" id="btn-create-page" onclick="createAndPublish()" style="opacity:0.6;cursor:not-allowed" disabled>📸 Carica le foto e crea pagina</button>'
+                    }
                 </div>
                 <div class="gen-spinner" id="gen-spinner">
                     <div class="spinner"></div>
