@@ -1435,7 +1435,7 @@
                     const pht = typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []);
                     const imgSrc = pht.length > 0 ? pht[0] : '';
                     const address = p.address || p.city || 'Indirizzo non specificato';
-                    html += '<div class="property-card" onclick="viewProperty(\'' + p._id + '\')">';
+                    html += '<div class="property-card" onclick="viewProperty(\'' + (p.uuid || p.id) + '\')">';
                     html += imgSrc ? '<img class="property-card-img" src="' + imgSrc + '" alt="">' : '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;color:#86868b;font-size:2rem">🏠</div>';
                     html += '<div class="property-card-body">';
                     html += '<div class="property-card-price">' + price + '</div>';
@@ -1459,7 +1459,7 @@
         let editorState = {
             editingId: null,
             step: 1,
-            totalSteps: 7,
+            totalSteps: 5,
             data: {
                 contract: 'vendita',
                 type: 'Appartamento',
@@ -1586,7 +1586,7 @@
 
         function renderStepProgress() {
             const container = document.getElementById('step-progress');
-            const labels = ['Tipo & Prezzo', 'Posizione', 'Caratteristiche', 'Dettagli', 'Foto', 'Genera', 'Condividi'];
+            const labels = ['Tipo & Prezzo', 'Posizione', 'Caratteristiche', 'Dettagli', 'Foto e Crea'];
             let html = '';
             for (let i = 1; i <= editorState.totalSteps; i++) {
                 if (i > 1) {
@@ -1631,8 +1631,6 @@
                 case 3: html = renderStep3(); break;
                 case 4: html = renderStep4(); break;
                 case 5: html = renderStep5(); break;
-                case 6: html = renderStep6(); break;
-                case 7: html = renderStep7(); break;
             }
             container.innerHTML = html;
             // Step nav
@@ -1642,9 +1640,6 @@
                 nav.innerHTML += '<button class="btn-prev" onclick="prevStep()">← Indietro</button>';
             } else {
                 nav.innerHTML += '<div></div>';
-            }
-            if (step < editorState.totalSteps) {
-                nav.innerHTML += '<button class="btn-next" onclick="nextStep()">Avanti →</button>';
             }
             container.appendChild(nav);
 
@@ -1851,14 +1846,15 @@
 
         function renderStep5() {
             const d = editorState.data;
+            const photosCount = d.photos ? d.photos.length : 0;
             const photosHtml = d.photos && d.photos.length > 0
                 ? '<div class="photo-preview-grid">' + d.photos.map((p, i) =>
                     '<div class="photo-preview-item"><img src="' + p.url + '" alt=""><button class="photo-remove" onclick="removePhoto(' + i + ')">✕</button></div>'
                 ).join('') + '</div>'
                 : '';
             return `
-                <h2>📸 Foto</h2>
-                <p class="sub">Carica fino a 10 foto dell'immobile</p>
+                <h2>📸 Carica le foto e crea pagina</h2>
+                <p class="sub">Ultimo passo! Carica le foto e pubblica l'immobile</p>
                 <div class="photo-dropzone" id="photo-dropzone" onclick="document.getElementById('photo-input').click()">
                     <div class="dz-icon">📷</div>
                     <p>Trascina qui le foto o clicca per selezionarle</p>
@@ -1866,6 +1862,15 @@
                 </div>
                 <input type="file" id="photo-input" multiple accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
                 ${photosHtml}
+                <div style="text-align:center;margin-top:20px;">
+                    <button class="btn-generate" id="btn-create-page" onclick="createAndPublish()">
+                        ${photosCount > 0 ? '✅ ' + photosCount + ' foto caricate — Crea Pagina' : '📸 Carica le foto e crea pagina'}
+                    </button>
+                </div>
+                <div class="gen-spinner" id="gen-spinner">
+                    <div class="spinner"></div>
+                    <p>Creazione immobile...</p>
+                </div>
             `;
         }
 
@@ -1915,34 +1920,21 @@
             });
         });
 
-        function renderStep6() {
-            const d = editorState.data;
-            const photosCount = d.photos ? d.photos.length : 0;
-            return `
-                <h2>Genera Descrizione</h2>
-                <p class="sub">${photosCount > 0 ? photosCount + ' foto caricate' : 'Nessuna foto caricata'}</p>
-                <div class="gen-area">
-                    <button class="btn-generate" id="btn-generate-desc" onclick="generateDescription()">
-                        Genera Descrizione con AI${photosCount > 0 ? ' (' + photosCount + ' foto)' : ''}
-                    </button>
-                </div>
-                <div class="gen-spinner" id="gen-spinner">
-                    <div class="spinner"></div>
-                    <p>Preparazione...</p>
-                </div>
-            `;
-        }
-
-        async function generateDescription() {
+        
+        async function createAndPublish() {
             const d = editorState.data;
             if (!d.photos || d.photos.length === 0) {
-                alert('Carica almeno una foto prima di generare.');
+                alert('Carica almeno una foto prima di creare la pagina.');
                 return;
             }
 
-            showGenerateOverlay('Creazione immobile...');
+            const overlay = document.getElementById('gen-spinner');
+            const pEl = overlay ? overlay.querySelector('p') : null;
+            if (overlay) overlay.classList.add('show');
 
             try {
+                if (pEl) pEl.textContent = 'Creazione immobile...';
+
                 const formData = new FormData();
                 formData.append('data', JSON.stringify({
                     contract_type: d.contract === 'vendita' ? 'sell' : 'rent',
@@ -1974,8 +1966,8 @@
                     condo_fees: d.condominium || null,
                 }));
 
-                d.photos.forEach(p => {
-                    if (p.file) formData.append('files', p.file);
+                d.photos.forEach(ph => {
+                    if (ph.file) formData.append('files', ph.file);
                 });
 
                 const createRes = await fetch('/api/properties', {
@@ -1987,182 +1979,43 @@
                 if (createData.error) throw new Error(createData.error);
 
                 const uuid = createData.uuid;
-                if (!uuid) throw new Error('Errore: UUID non ricevuto');
+                if (!uuid) throw new Error('UUID non ricevuto');
 
-                showGenerateOverlay('Generazione descrizione con AI...');
+                if (pEl) pEl.textContent = 'Generazione descrizione con AI...';
+
                 const listRes = await fetch('/api/properties', {
                     headers: { 'Authorization': 'Bearer ' + authToken }
                 });
                 const listData = await listRes.json();
                 const props = listData.properties || [];
                 const prop = props.find(p => p.uuid === uuid);
-                if (!prop) throw new Error('Immobile non trovato dopo creazione');
+                if (!prop) {
+                    window.location.href = '/p/' + uuid;
+                    return;
+                }
 
-                const propId = prop.id;
-
-                showGenerateOverlay("AI all'opera...");
-                const genRes = await fetch('/api/properties/' + propId + '/generate', {
+                if (pEl) pEl.textContent = "AI all'opera...";
+                const genRes = await fetch('/api/properties/' + prop.id + '/generate', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + authToken }
                 });
                 const genData = await genRes.json();
                 if (genData.error) throw new Error(genData.error);
 
-                editorState.editingId = uuid;
-                editorState.data.description = genData.description;
-                editorState.data.generatedUuid = uuid;
-                editorState.data.generatedId = propId;
-                editorState.data.serverPhotos = genData.photos || [];
-
-                hideGenerateOverlay();
-                editorState.step = 7;
-                renderEditor();
-
                 if (genData.remaining !== undefined && currentUser) {
                     currentUser.remaining = genData.remaining;
                     updateUI();
                 }
 
+                window.location.href = '/p/' + uuid;
+
             } catch (err) {
-                hideGenerateOverlay();
+                if (overlay) overlay.classList.remove('show');
                 alert('Errore: ' + err.message);
-                editorState.data.description = generateLocalDescription(d);
-                editorState.step = 7;
-                renderEditor();
             }
         }
 
-        function showGenerateOverlay(msg) {
-            const overlay = document.getElementById('gen-spinner');
-            if (overlay) {
-                const p = overlay.querySelector('p');
-                if (p) p.textContent = msg;
-                overlay.classList.add('show');
-            }
-        }
-
-        function hideGenerateOverlay() {
-            const overlay = document.getElementById('gen-spinner');
-            if (overlay) overlay.classList.remove('show');
-        }
-
-        function generateLocalDescription(d) {
-            const contractLabel = d.contract === 'vendita' ? 'in vendita' : 'in affitto';
-            const priceStr = d.price ? '€ ' + addDots(d.price) + (d.contract === 'affitto' ? '/mese' : '') : '';
-            let desc = d.type + ' ' + contractLabel;
-            if (priceStr) desc += ' - ' + priceStr;
-            desc += '\n\n';
-            if (d.address || d.city) desc += [d.address, d.city, d.province].filter(Boolean).join(', ') + '\n\n';
-            desc += (d.surface || '---') + ' mq \u2022 ' + (d.rooms || '---') + ' locali \u2022 ' + (d.bathrooms || '---') + ' bagni';
-            if (d.floor !== '') desc += ' \u2022 Piano ' + d.floor + (d.total_floors ? '/' + d.total_floors : '');
-            desc += '\n\n';
-            if (d.condition) desc += 'Stato: ' + d.condition + '\n';
-            if (d.energy_class) desc += 'Classe energetica: ' + d.energy_class + '\n';
-            if (d.heating) desc += 'Riscaldamento: ' + d.heating + '\n';
-            if (d.exposure) desc += 'Esposizione: ' + d.exposure + '\n';
-            if (d.elevator) desc += 'Ascensore\n';
-            if (d.air_conditioning) desc += 'Aria condizionata\n';
-            if (d.parking) desc += 'Posto auto\n';
-            if (d.basement) desc += 'Cantina\n';
-            if (d.balcony) desc += 'Balcone/Terrazzo: ' + d.balcony + ' mq\n';
-            if (d.garden) desc += 'Giardino: ' + d.garden + ' mq\n';
-            if (d.furnished && d.furnished !== 'No') desc += 'Arredato: ' + d.furnished + '\n';
-            if (d.year_built) desc += 'Anno costruzione: ' + d.year_built + '\n';
-            if (d.condominium && d.contract === 'vendita') desc += 'Spese condominiali: \u20ac ' + addDots(d.condominium) + '/mese\n';
-            return desc + '\n\nPer maggiori informazioni contattaci!';
-        }
-
-        function addDots(n) {
-            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        }
-
-        function editDescription() {
-            const newDesc = prompt('Modifica la descrizione:', editorState.data.description);
-            if (newDesc !== null) {
-                editorState.data.description = newDesc;
-                renderEditor();
-            }
-        }
-
-        function renderStep7() {
-            const d = editorState.data;
-            const uuid = d.generatedUuid || editorState.editingId;
-            const pageUrl = window.location.origin + '/p/' + uuid;
-
-            return [
-                '<h2>Immobile Pubblicato!</h2>',
-                '<p class="sub">Condividi il link con i tuoi clienti</p>',
-                '<div style="text-align:center;padding:20px">',
-                '<div style="background:#f0fff4;border:2px solid #34c759;border-radius:16px;padding:20px;margin-bottom:20px">',
-                '<div style="font-size:2rem;margin-bottom:8px">✅</div>',
-                '<p style="font-weight:600;color:#1d1d1f">Immobile creato e descrizione generata con successo!</p>',
-                '</div>',
-                '<div style="background:#f5f5f7;border-radius:12px;padding:16px;margin-bottom:16px">',
-                '<p style="color:#86868b;font-size:0.82rem;margin-bottom:8px">Link pubblico dell\'immobile</p>',
-                '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">',
-                '<input type="text" id="share-link" value="' + pageUrl + '" readonly',
-                'style="padding:8px 14px;border:1px solid #d2d2d7;border-radius:8px;font-size:0.9rem;width:340px;max-width:100%;text-align:center;background:white">',
-                '<button class="btn-copy-sm" onclick="copyShareLink()">Copia</button>',
-                '</div>',
-                '</div>',
-                '<div style="margin:16px 0">',
-                '<p style="color:#86868b;font-size:0.85rem;margin-bottom:10px">Condividi sui social</p>',
-                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">',
-                '<a class="share-btn-sm facebook" onclick="return shareLinkPopup(&apos;facebook&apos;)" href="#" target="_blank">Facebook</a>',
-                '<a class="share-btn-sm twitter" onclick="return shareLinkPopup(&apos;twitter&apos;)" href="#" target="_blank">X</a>',
-                '<a class="share-btn-sm whatsapp" onclick="return shareLinkPopup(&apos;whatsapp&apos;)" href="#" target="_blank">WhatsApp</a>',
-                '<a class="share-btn-sm linkedin" onclick="return shareLinkPopup(&apos;linkedin&apos;)" href="#" target="_blank">LinkedIn</a>',
-                '</div>',
-                '</div>',
-                '<div style="margin-top:20px">',
-                '<button class="btn-primary" onclick="navigateTo(&apos;dashboard&apos;);loadDashboard()" style="padding:12px 30px">Vai alla Dashboard</button>',
-                '</div>',
-                '</div>'
-            ].join('\n');
-        }
-
-        function shareLinkPopup(platform) {
-            const uuid = editorState.data.generatedUuid || editorState.editingId;
-            if (!uuid) return false;
-            const url = window.location.origin + '/p/' + uuid;
-            const text = 'Immobile su DescriviCasa.it';
-            let shareUrl = '';
-            switch (platform) {
-                case 'facebook': shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url) + '&quote=' + encodeURIComponent(text); break;
-                case 'twitter': shareUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url); break;
-                case 'whatsapp': shareUrl = 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url); break;
-                case 'linkedin': shareUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(url); break;
-            }
-            if (shareUrl) window.open(shareUrl, '_blank', 'width=600,height=500');
-            return false;
-        }
-
-        function copyShareLink() {
-            const input = document.getElementById('share-link');
-            if (!input) return;
-            navigator.clipboard.writeText(input.value).then(() => {
-                const msg = document.getElementById('copied-link-msg');
-                if (msg) msg.classList.add('show');
-                setTimeout(() => { if (msg) msg.classList.remove('show'); }, 2000);
-            });
-        }
-
-        function saveProperty() {
-            alert('Usa il bottone "Genera Descrizione" al passo 6.');
-        }
-        function shareSocial(platform) {
-            const id = editorState.editingId;
-            if (!id) return;
-            const url = window.location.origin + '/p/' + id;
-            const text = '🏠 Scopri questo immobile su DescriviCasa.it';
-            let shareUrl = '';
-            switch (platform) {
-                case 'facebook': shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url); break;
-                case 'twitter': shareUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url); break;
-                case 'whatsapp': shareUrl = 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url); break;
-            }
-            window.open(shareUrl, '_blank', 'width=600,height=500,noopener,noreferrer');
-        }
+        
 
         // ════════════════════════════════════════════════════════
         // PROPERTY DETAIL VIEW
@@ -2172,13 +2025,15 @@
             showPropertyDetail(id);
         }
 
-        async function showPropertyDetail(id) {
+        async 
+        function addDots(n) {
+            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+function showPropertyDetail(id) {
             const container = document.getElementById('detail-content');
             container.innerHTML = '<div style="text-align:center;padding:30px"><div class="spinner"></div><p style="color:#86868b">Caricamento...</p></div>';
             try {
-                const res = await fetch('/api/properties/' + id, {
-                    headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
-                });
+                const res = await fetch('/api/p/' + id);
                 const data = await res.json();
                 const p = data.property || data;
                 if (data.error || !p) {
@@ -2190,6 +2045,7 @@
                     ? '<div class="detail-images">' + p.photos.map(img => '<img src="' + img + '" alt="">').join('') + '</div>'
                     : '';
 
+                window._detailProperty = p; if (window._detailViewUuid === undefined) window._detailViewUuid = p.uuid;
                 container.innerHTML = `
                     <div class="detail-header">
                         <button class="btn-secondary" onclick="navigateTo('dashboard');loadDashboard()">← Torna</button>
@@ -2238,10 +2094,14 @@
         }
 
         function copyDetailLink(id) {
-            const url = window.location.origin + '/p/' + id;
+            const p = window._detailProperty;
+            if (p && p.uuid) id = p.uuid;
+            const url = window.location.origin + "/p/" + id;
             navigator.clipboard.writeText(url).then(() => {
-                const msg = document.getElementById('detail-copied-msg');
-                if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 2500); }
+                const msg = document.getElementById("detail-copied-msg");
+                if (msg) { msg.classList.add("show"); setTimeout(() => msg.classList.remove("show"), 2500); }
+            });
+        }
             });
         }
 
@@ -2292,7 +2152,7 @@
 
         // Also check URL for direct property links (/p/ID)
         function checkUrlForDetail() {
-            const match = window.location.pathname.match(/^\/p\/([a-zA-Z0-9]+)$/);
+            const match = window.location.pathname.match(/^\/p\/([a-f0-9-]+)$/);
             if (match) {
                 const id = match[1];
                 setTimeout(() => showPropertyDetail(id), 300);
