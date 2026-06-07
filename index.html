@@ -1431,8 +1431,9 @@
                 }
                 let html = '<div class="property-grid">';
                 arr.forEach(p => {
-                    const price = p.contract === 'affitto' ? '€ ' + (p.price || 0) + '/mese' : '€ ' + (p.price || 0);
-                    const imgSrc = p.photos && p.photos.length > 0 ? p.photos[0] : '';
+                    const price = p.contract_type === 'rent' ? '€ ' + (p.price || 0) + '/mese' : '€ ' + (p.price || 0);
+                    const pht = typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []);
+                    const imgSrc = pht.length > 0 ? pht[0] : '';
                     const address = p.address || p.city || 'Indirizzo non specificato';
                     html += '<div class="property-card" onclick="viewProperty(\'' + p._id + '\')">';
                     html += imgSrc ? '<img class="property-card-img" src="' + imgSrc + '" alt="">' : '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;color:#86868b;font-size:2rem">🏠</div>';
@@ -1542,34 +1543,34 @@
             .then(data => {
                 const p = data.property || data;
                 editorState.data = {
-                    contract: p.contract || 'vendita',
-                    type: p.type || 'Appartamento',
+                    contract: p.contract_type === 'sell' ? 'vendita' : 'affitto',
+                    type: p.property_type || 'Appartamento',
                     price: p.price || '',
-                    condominium: p.condominium || '',
+                    condominium: p.condo_fees || '',
                     address: p.address || '',
                     city: p.city || '',
                     province: p.province || '',
-                    lat: p.lat || 41.9028,
-                    lng: p.lng || 12.4964,
+                    lat: p.latitude || 41.9028,
+                    lng: p.longitude || 12.4964,
                     surface: p.surface || '',
                     rooms: p.rooms || '',
                     bedrooms: p.bedrooms || '',
                     bathrooms: p.bathrooms || '',
                     floor: p.floor || '',
                     total_floors: p.total_floors || '',
-                    elevator: p.elevator || false,
-                    condition: p.condition || 'Nuovo',
+                    elevator: !!p.elevator,
+                    condition: p.building_state || 'Nuovo',
                     energy_class: p.energy_class || 'A4',
                     heating: p.heating || 'Autonomo',
-                    air_conditioning: p.air_conditioning || false,
+                    air_conditioning: !!p.air_conditioning,
                     exposure: p.exposure || '',
-                    balcony: p.balcony || '',
-                    garden: p.garden || '',
-                    parking: p.parking || false,
-                    basement: p.basement || false,
-                    furnished: p.furnished || 'No',
+                    balcony: p.balcony_sqm || '',
+                    garden: p.garden_sqm || '',
+                    parking: !!p.parking,
+                    basement: !!p.basement,
+                    furnished: p.furnished || 'no',
                     year_built: p.year_built || '',
-                    photos: p.photos || [],
+                    photos: typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []),
                     description: p.description || ''
                 };
                 navigateTo('editor');
@@ -2184,7 +2185,7 @@
                     container.innerHTML = '<div class="error-msg show">Immobile non trovato</div><button class="btn-secondary" onclick="navigateTo(\'dashboard\');loadDashboard()">← Torna</button>';
                     return;
                 }
-                const price = p.contract === 'affitto' ? '€ ' + (p.price || 0) + '/mese' : '€ ' + addDots(p.price || 0);
+                const price = p.contract_type === 'rent' ? '€ ' + (p.price || 0) + '/mese' : '€ ' + addDots(p.price || 0);
                 const imgHtml = p.photos && p.photos.length > 0
                     ? '<div class="detail-images">' + p.photos.map(img => '<img src="' + img + '" alt="">').join('') + '</div>'
                     : '';
@@ -2192,7 +2193,7 @@
                 container.innerHTML = `
                     <div class="detail-header">
                         <button class="btn-secondary" onclick="navigateTo('dashboard');loadDashboard()">← Torna</button>
-                        <h2>${escapeHtml(p.type || 'Immobile')}</h2>
+                        <h2>${escapeHtml(p.property_type || 'Immobile')}</h2>
                         ${authToken ? '<button class="btn-secondary" onclick="editProperty(\'${id}\')">✏️ Modifica</button>' : ''}
                     </div>
                     <div class="detail-card">
@@ -2206,15 +2207,15 @@
                                 ${p.bedrooms ? '<div class="detail-feat"><strong>' + p.bedrooms + '</strong><span>Camere</span></div>' : ''}
                                 ${p.bathrooms ? '<div class="detail-feat"><strong>' + p.bathrooms + '</strong><span>Bagni</span></div>' : ''}
                                 ${p.floor !== '' && p.floor !== undefined ? '<div class="detail-feat"><strong>' + p.floor + (p.total_floors ? '/' + p.total_floors : '') + '</strong><span>Piano</span></div>' : ''}
-                                ${p.condition ? '<div class="detail-feat"><strong>' + p.condition + '</strong><span>Stato</span></div>' : ''}
+                                ${p.building_state ? '<div class="detail-feat"><strong>' + p.building_state + '</strong><span>Stato</span></div>' : ''}
                                 ${p.energy_class ? '<div class="detail-feat"><strong>' + p.energy_class + '</strong><span>Classe energetica</span></div>' : ''}
                                 ${p.heating ? '<div class="detail-feat"><strong>' + p.heating + '</strong><span>Riscaldamento</span></div>' : ''}
                                 ${p.elevator ? '<div class="detail-feat"><strong>✅</strong><span>Ascensore</span></div>' : ''}
                                 ${p.air_conditioning ? '<div class="detail-feat"><strong>✅</strong><span>Aria condizionata</span></div>' : ''}
                                 ${p.parking ? '<div class="detail-feat"><strong>✅</strong><span>Posto auto</span></div>' : ''}
                                 ${p.basement ? '<div class="detail-feat"><strong>✅</strong><span>Cantina</span></div>' : ''}
-                                ${p.balcony ? '<div class="detail-feat"><strong>' + p.balcony + ' mq</strong><span>Balcone</span></div>' : ''}
-                                ${p.garden ? '<div class="detail-feat"><strong>' + p.garden + ' mq</strong><span>Giardino</span></div>' : ''}
+                                ${p.balcony_sqm ? '<div class="detail-feat"><strong>' + p.balcony_sqm + ' mq</strong><span>Balcone</span></div>' : ''}
+                                ${p.garden_sqm ? '<div class="detail-feat"><strong>' + p.garden_sqm + ' mq</strong><span>Giardino</span></div>' : ''}
                                 ${p.exposure ? '<div class="detail-feat"><strong>' + p.exposure + '</strong><span>Esposizione</span></div>' : ''}
                                 ${p.furnished && p.furnished !== 'No' ? '<div class="detail-feat"><strong>' + p.furnished + '</strong><span>Arredato</span></div>' : ''}
                                 ${p.year_built ? '<div class="detail-feat"><strong>' + p.year_built + '</strong><span>Anno costruzione</span></div>' : ''}
