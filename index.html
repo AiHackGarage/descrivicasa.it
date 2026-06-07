@@ -446,6 +446,14 @@
             transition: background 0.2s;
         }
         .btn-secondary:hover { background: #e8e8ed; }
+        .btn-copy-sm { padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
+        .btn-copy-sm:hover { opacity: 0.9; }
+        .share-btn-sm { padding: 8px 16px; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 500; cursor: pointer; color: white; text-decoration: none; display: inline-block; transition: opacity 0.2s; }
+        .share-btn-sm:hover { opacity: 0.85; }
+        .share-btn-sm.facebook { background: #1877f2; }
+        .share-btn-sm.twitter { background: #000; }
+        .share-btn-sm.whatsapp { background: #25d366; }
+        .share-btn-sm.linkedin { background: #0a66c2; }
         .property-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -598,7 +606,14 @@
         .form-group input:focus, .form-group select:focus {
             border-color: #667eea;
         }
-        .form-group input[type="number"] { -moz-appearance: textfield; }
+        .form-group input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .form-group input[type="number"]::-webkit-inner-spin-button,
+        .form-group input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
 
         /* Toggle buttons for contract type */
         .toggle-group {
@@ -1837,7 +1852,7 @@
             const d = editorState.data;
             const photosHtml = d.photos && d.photos.length > 0
                 ? '<div class="photo-preview-grid">' + d.photos.map((p, i) =>
-                    '<div class="photo-preview-item"><img src="' + p + '" alt=""><button class="photo-remove" onclick="removePhoto(' + i + ')">✕</button></div>'
+                    '<div class="photo-preview-item"><img src="' + p.url + '" alt=""><button class="photo-remove" onclick="removePhoto(' + i + ')">✕</button></div>'
                 ).join('') + '</div>'
                 : '';
             return `
@@ -1861,7 +1876,7 @@
             const toAdd = files.slice(0, remaining);
             toAdd.forEach(f => {
                 const url = URL.createObjectURL(f);
-                editorState.data.photos.push(url);
+                editorState.data.photos.push({ url, file: f });
             });
             renderEditor();
         }
@@ -1893,7 +1908,7 @@
                 const toAdd = files.slice(0, remaining);
                 toAdd.forEach(f => {
                     const url = URL.createObjectURL(f);
-                    editorState.data.photos.push(url);
+                    editorState.data.photos.push({ url, file: f });
                 });
                 renderEditor();
             });
@@ -1901,87 +1916,159 @@
 
         function renderStep6() {
             const d = editorState.data;
-            const genHtml = d.description ? `
-                <div class="gen-description show">
-                    <h4>📝 Descrizione Generata</h4>
-                    <p id="gen-text">${escapeHtml(d.description)}</p>
-                    <div class="gen-actions">
-                        <button style="background:#667eea;color:white" onclick="generateDescription()">🔄 Rigenera</button>
-                        <button style="background:#f5f5f7;color:#1d1d1f;border:1px solid #d2d2d7" onclick="editDescription()">✏️ Modifica manualmente</button>
-                    </div>
-                </div>
-            ` : '';
+            const photosCount = d.photos ? d.photos.length : 0;
             return `
-                <h2>✨ Genera Descrizione</h2>
-                <p class="sub">L'AI genererà una descrizione professionale basata sui dati inseriti</p>
+                <h2>Genera Descrizione</h2>
+                <p class="sub">${photosCount > 0 ? photosCount + ' foto caricate' : 'Nessuna foto caricata'}</p>
                 <div class="gen-area">
-                    <button class="btn-generate" id="btn-generate-desc" onclick="generateDescription()">✨ Genera Descrizione con AI</button>
+                    <button class="btn-generate" id="btn-generate-desc" onclick="generateDescription()">
+                        Genera Descrizione con AI${photosCount > 0 ? ' (' + photosCount + ' foto)' : ''}
+                    </button>
                 </div>
                 <div class="gen-spinner" id="gen-spinner">
                     <div class="spinner"></div>
-                    <p>Generazione in corso...</p>
+                    <p>Preparazione...</p>
                 </div>
-                ${genHtml}
             `;
         }
 
         async function generateDescription() {
-            const btn = document.getElementById('btn-generate-desc');
-            const spinner = document.getElementById('gen-spinner');
-            if (btn) btn.disabled = true;
-            if (spinner) spinner.classList.add('show');
+            const d = editorState.data;
+            if (!d.photos || d.photos.length === 0) {
+                alert('Carica almeno una foto prima di generare.');
+                return;
+            }
+
+            showGenerateOverlay('Creazione immobile...');
 
             try {
                 const formData = new FormData();
-                formData.append('data', JSON.stringify(editorState.data));
-                // If we have real files (blob urls won't work for server), send the data
-                const res = await fetch('/api/properties/' + (editorState.editingId || 'generate'), {
+                formData.append('data', JSON.stringify({
+                    contract_type: d.contract === 'vendita' ? 'sell' : 'rent',
+                    property_type: d.type ? d.type.toLowerCase() : 'apartment',
+                    address: d.address || '',
+                    city: d.city || '',
+                    province: d.province || '',
+                    latitude: d.lat,
+                    longitude: d.lng,
+                    surface: d.surface || null,
+                    rooms: d.rooms || null,
+                    bedrooms: d.bedrooms || null,
+                    bathrooms: d.bathrooms || null,
+                    floor: d.floor !== '' ? d.floor : null,
+                    total_floors: d.total_floors || null,
+                    elevator: d.elevator || false,
+                    building_state: d.condition || null,
+                    energy_class: d.energy_class || null,
+                    heating: d.heating || null,
+                    air_conditioning: d.air_conditioning || false,
+                    exposure: d.exposure || null,
+                    balcony_sqm: d.balcony || null,
+                    garden_sqm: d.garden || null,
+                    parking: d.parking || false,
+                    basement: d.basement || false,
+                    furnished: d.furnished ? d.furnished.lower() : 'no',
+                    year_built: d.year_built || null,
+                    price: d.price || null,
+                    condo_fees: d.condominium || null,
+                }));
+
+                d.photos.forEach(p => {
+                    if (p.file) formData.append('files', p.file);
+                });
+
+                const createRes = await fetch('/api/properties', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + authToken },
                     body: formData
                 });
-                const data = await res.json();
-                if (data.error) { alert(data.error); return; }
-                editorState.data.description = data.description || data.text || 'Descrizione generata con successo.';
+                const createData = await createRes.json();
+                if (createData.error) throw new Error(createData.error);
+
+                const uuid = createData.uuid;
+                if (!uuid) throw new Error('Errore: UUID non ricevuto');
+
+                showGenerateOverlay('Generazione descrizione con AI...');
+                const listRes = await fetch('/api/properties', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
+                const listData = await listRes.json();
+                const props = listData.properties || [];
+                const prop = props.find(p => p.uuid === uuid);
+                if (!prop) throw new Error('Immobile non trovato dopo creazione');
+
+                const propId = prop.id;
+
+                showGenerateOverlay('AI all'opera...');
+                const genRes = await fetch('/api/properties/' + propId + '/generate', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
+                const genData = await genRes.json();
+                if (genData.error) throw new Error(genData.error);
+
+                editorState.editingId = uuid;
+                editorState.data.description = genData.description;
+                editorState.data.generatedUuid = uuid;
+                editorState.data.generatedId = propId;
+                editorState.data.serverPhotos = genData.photos || [];
+
+                hideGenerateOverlay();
+                editorState.step = 7;
                 renderEditor();
+
+                if (genData.remaining !== undefined && currentUser) {
+                    currentUser.remaining = genData.remaining;
+                    updateUI();
+                }
+
             } catch (err) {
-                // Fallback: generate locally if API fails
-                editorState.data.description = generateLocalDescription(editorState.data);
+                hideGenerateOverlay();
+                alert('Errore: ' + err.message);
+                editorState.data.description = generateLocalDescription(d);
+                editorState.step = 7;
                 renderEditor();
-            } finally {
-                if (btn) btn.disabled = false;
-                if (spinner) spinner.classList.remove('show');
             }
+        }
+
+        function showGenerateOverlay(msg) {
+            const overlay = document.getElementById('gen-spinner');
+            if (overlay) {
+                const p = overlay.querySelector('p');
+                if (p) p.textContent = msg;
+                overlay.classList.add('show');
+            }
+        }
+
+        function hideGenerateOverlay() {
+            const overlay = document.getElementById('gen-spinner');
+            if (overlay) overlay.classList.remove('show');
         }
 
         function generateLocalDescription(d) {
             const contractLabel = d.contract === 'vendita' ? 'in vendita' : 'in affitto';
-            const typeLabel = d.type ? d.type.toLowerCase() : 'immobile';
-            const priceStr = d.contract === 'affitto' ? (d.price ? '€ ' + d.price + '/mese' : '') : (d.price ? '€ ' + addDots(d.price) : '');
-            let desc = '';
-            if (d.contract === 'vendita') {
-                desc = '🏠 ' + d.type + ' ' + contractLabel + ' — ' + priceStr + '\n\n';
-            } else {
-                desc = '🏠 ' + d.type + ' ' + contractLabel + ' — ' + priceStr + '\n\n';
-            }
-            if (d.address || d.city) desc += '📍 ' + [d.address, d.city, d.province].filter(Boolean).join(', ') + '\n\n';
-            desc += '📐 ' + (d.surface || '---') + ' mq • ' + (d.rooms || '---') + ' locali • ' + (d.bathrooms || '---') + ' bagni';
-            if (d.floor !== '') desc += ' • Piano ' + d.floor + (d.total_floors ? '/' + d.total_floors : '');
+            const priceStr = d.price ? '€ ' + addDots(d.price) + (d.contract === 'affitto' ? '/mese' : '') : '';
+            let desc = d.type + ' ' + contractLabel;
+            if (priceStr) desc += ' - ' + priceStr;
+            desc += '\n\n';
+            if (d.address || d.city) desc += [d.address, d.city, d.province].filter(Boolean).join(', ') + '\n\n';
+            desc += (d.surface || '---') + ' mq \u2022 ' + (d.rooms || '---') + ' locali \u2022 ' + (d.bathrooms || '---') + ' bagni';
+            if (d.floor !== '') desc += ' \u2022 Piano ' + d.floor + (d.total_floors ? '/' + d.total_floors : '');
             desc += '\n\n';
             if (d.condition) desc += 'Stato: ' + d.condition + '\n';
             if (d.energy_class) desc += 'Classe energetica: ' + d.energy_class + '\n';
             if (d.heating) desc += 'Riscaldamento: ' + d.heating + '\n';
             if (d.exposure) desc += 'Esposizione: ' + d.exposure + '\n';
-            if (d.elevator) desc += '✅ Ascensore\n';
-            if (d.air_conditioning) desc += '✅ Aria condizionata\n';
-            if (d.parking) desc += '✅ Posto auto\n';
-            if (d.basement) desc += '✅ Cantina\n';
-            if (d.balcony) desc += '🌿 Balcone/Terrazzo: ' + d.balcony + ' mq\n';
-            if (d.garden) desc += '🌳 Giardino: ' + d.garden + ' mq\n';
-            if (d.furnished && d.furnished !== 'No') desc += 'Arredato: ' + d.furnished + '\n';
+            if (d.elevator) desc += 'Ascensore\n';
+            if (d.air_conditioning) desc += 'Aria condizionata\n';
+            if (d.parking) desc += 'Posto auto\n';
+            if (d.basement) desc += 'Cantina\n';
+            if (d.balcony) desc += 'Balcone/Terrazzo: ' + d.balcony + ' mq\n';
+            if (d.garden) desc += 'Giardino: ' + d.garden + ' mq\n';
+            if (d.furnished and d.furnished != 'No') desc += 'Arredato: ' + d.furnished + '\n';
             if (d.year_built) desc += 'Anno costruzione: ' + d.year_built + '\n';
-            if (d.condominium && d.contract === 'vendita') desc += 'Spese condominiali: € ' + d.condominium + '/mese\n';
-            return desc + '\n\n📞 Per maggiori informazioni contattaci!';
+            if (d.condominium and d.contract == 'vendita') desc += 'Spese condominiali: \u20ac ' + addDots(d.condominium) + '/mese\n';
+            return desc + '\n\nPer maggiori informazioni contattaci!';
         }
 
         function addDots(n) {
@@ -1998,58 +2085,55 @@
 
         function renderStep7() {
             const d = editorState.data;
-            const saved = editorState.editingId;
-            return `
-                <h2>🔗 Condividi</h2>
-                <p class="sub">Il tuo immobile è pronto! Condividilo con i tuoi clienti.</p>
-                ${!saved ? `
-                <div style="text-align:center;padding:20px">
-                    <button class="btn-primary" onclick="saveProperty()" style="padding:14px 40px;font-size:1.05rem">💾 Salva immobile</button>
-                    <p style="color:#86868b;font-size:0.85rem;margin-top:12px">Salva prima di poter condividere</p>
-                </div>` : `
-                <div style="text-align:center;padding:20px">
-                    <div style="margin-bottom:16px">
-                        <p style="color:#86868b;font-size:0.85rem">Link pubblico</p>
-                        <div style="display:flex;gap:8px;justify-content:center;margin-top:6px">
-                            <input type="text" id="share-link" value="${window.location.origin}/p/${saved}" readonly style="padding:8px 14px;border:1px solid #d2d2d7;border-radius:8px;font-size:0.9rem;width:300px;text-align:center">
-                            <button class="share-btn copy-link" onclick="copyShareLink()">📋 Copia</button>
-                        </div>
-                    </div>
-                    <div class="detail-share">
-                        <button class="share-btn fb" onclick="shareSocial('facebook')">Facebook</button>
-                        <button class="share-btn tw" onclick="shareSocial('twitter')">X</button>
-                        <button class="share-btn wa" onclick="shareSocial('whatsapp')">WhatsApp</button>
-                    </div>
-                    <div class="copied-msg" id="copied-link-msg">✅ Link copiato negli appunti!</div>
-                    <div style="margin-top:20px">
-                        <button class="btn-secondary" onclick="navigateTo('dashboard');loadDashboard()">🏠 Torna alla dashboard</button>
-                    </div>
-                </div>`}
-            `;
+            const uuid = d.generatedUuid || editorState.editingId;
+            const pageUrl = window.location.origin + '/p/' + uuid;
+
+            return [
+                '<h2>Immobile Pubblicato!</h2>',
+                '<p class="sub">Condividi il link con i tuoi clienti</p>',
+                '<div style="text-align:center;padding:20px">',
+                '<div style="background:#f0fff4;border:2px solid #34c759;border-radius:16px;padding:20px;margin-bottom:20px">',
+                '<div style="font-size:2rem;margin-bottom:8px">✅</div>',
+                '<p style="font-weight:600;color:#1d1d1f">Immobile creato e descrizione generata con successo!</p>',
+                '</div>',
+                '<div style="background:#f5f5f7;border-radius:12px;padding:16px;margin-bottom:16px">',
+                '<p style="color:#86868b;font-size:0.82rem;margin-bottom:8px">Link pubblico dell'immobile</p>',
+                '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">',
+                '<input type="text" id="share-link" value="' + pageUrl + '" readonly',
+                'style="padding:8px 14px;border:1px solid #d2d2d7;border-radius:8px;font-size:0.9rem;width:340px;max-width:100%;text-align:center;background:white">',
+                '<button class="btn-copy-sm" onclick="copyShareLink()">Copia</button>',
+                '</div>',
+                '</div>',
+                '<div style="margin:16px 0">',
+                '<p style="color:#86868b;font-size:0.85rem;margin-bottom:10px">Condividi sui social</p>',
+                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">',
+                '<a class="share-btn-sm facebook" onclick="return shareLinkPopup(&apos;facebook&apos;)" href="#" target="_blank">Facebook</a>',
+                '<a class="share-btn-sm twitter" onclick="return shareLinkPopup(&apos;twitter&apos;)" href="#" target="_blank">X</a>',
+                '<a class="share-btn-sm whatsapp" onclick="return shareLinkPopup(&apos;whatsapp&apos;)" href="#" target="_blank">WhatsApp</a>',
+                '<a class="share-btn-sm linkedin" onclick="return shareLinkPopup(&apos;linkedin&apos;)" href="#" target="_blank">LinkedIn</a>',
+                '</div>',
+                '</div>',
+                '<div style="margin-top:20px">',
+                '<button class="btn-primary" onclick="navigateTo(&apos;dashboard&apos;);loadDashboard()" style="padding:12px 30px">Vai alla Dashboard</button>',
+                '</div>',
+                '</div>'
+            ].join('\n');
         }
 
-        async function saveProperty() {
-            const btn = document.querySelector('#view-editor .btn-primary');
-            if (btn) btn.textContent = '⏳ Salvataggio...';
-            try {
-                const method = editorState.editingId ? 'PUT' : 'POST';
-                const url = editorState.editingId ? '/api/properties/' + editorState.editingId : '/api/properties';
-                const res = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify(editorState.data)
-                });
-                const data = await res.json();
-                if (data.error) { alert('Errore: ' + data.error); return; }
-                const id = data.property ? data.property._id : (data._id || editorState.editingId);
-                editorState.editingId = id;
-                renderEditor();
-            } catch (err) {
-                alert('Errore di connessione: ' + err.message);
+        function shareLinkPopup(platform) {
+            const uuid = editorState.data.generatedUuid || editorState.editingId;
+            if (!uuid) return false;
+            const url = window.location.origin + '/p/' + uuid;
+            const text = 'Immobile su DescriviCasa.it';
+            let shareUrl = '';
+            switch (platform) {
+                case 'facebook': shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url) + '&quote=' + encodeURIComponent(text); break;
+                case 'twitter': shareUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url); break;
+                case 'whatsapp': shareUrl = 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url); break;
+                case 'linkedin': shareUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(url); break;
             }
+            if (shareUrl) window.open(shareUrl, '_blank', 'width=600,height=500');
+            return false;
         }
 
         function copyShareLink() {
@@ -2057,10 +2141,14 @@
             if (!input) return;
             navigator.clipboard.writeText(input.value).then(() => {
                 const msg = document.getElementById('copied-link-msg');
-                if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 2500); }
+                if (msg) msg.classList.add('show');
+                setTimeout(() => { if (msg) msg.classList.remove('show'); }, 2000);
             });
         }
 
+        function saveProperty() {
+            alert('Usa il bottone "Genera Descrizione" al passo 6.');
+        }
         function shareSocial(platform) {
             const id = editorState.editingId;
             if (!id) return;
