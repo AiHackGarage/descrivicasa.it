@@ -107,10 +107,12 @@ async function initDatabase() {
         description TEXT NOT NULL,
         image_urls TEXT DEFAULT NULL,
         model VARCHAR(100) DEFAULT NULL,
+        property_uuid VARCHAR(36) DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+    try { await conn.query(`ALTER TABLE generations ADD COLUMN property_uuid VARCHAR(36) DEFAULT NULL AFTER model`); } catch (_) {}
     // Properties table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS properties (
@@ -405,7 +407,7 @@ app.post('/api/auth/google', async (req, res) => {
 app.get('/api/history', authMiddleware, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, description, image_urls, model, created_at FROM generations WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
+      'SELECT id, description, image_urls, model, property_uuid, created_at FROM generations WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
       [req.user.id]
     );
     res.json({ history: rows.map(r => ({ ...r, image_urls: r.image_urls ? JSON.parse(r.image_urls) : [] })) });
@@ -810,8 +812,8 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
 
     // Save to history
     await pool.query(
-      'INSERT INTO generations (user_id, description, image_urls, model) VALUES (?, ?, ?, ?)',
-      [req.user.id, result.description, JSON.stringify(photos), result.model || '']
+      'INSERT INTO generations (user_id, description, image_urls, model, property_uuid) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, result.description, JSON.stringify(photos), result.model || '', property.uuid]
     ).catch(() => {});
 
     // Update property with description

@@ -1310,6 +1310,11 @@
         }
 
         function showDescription(h) {
+            if (h.property_uuid) {
+                window.location.href = '/p/' + h.property_uuid;
+                return;
+            }
+            // Fallback: try loading by generation id
             closeModal();
             navigateTo('detail');
             showPropertyDetail(h.property_id || null);
@@ -1439,7 +1444,7 @@
                     const pht = typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []);
                     const imgSrc = pht.length > 0 ? pht[0] : '';
                     const address = p.address || p.city || 'Indirizzo non specificato';
-                    html += '<div class="property-card" onclick="viewProperty(\'' + (p.uuid || p.id) + '\')">';
+                    html += '<div class="property-card" onclick="window.location.href=\'/p/' + (p.uuid || p.id) + '\'">';
                     html += imgSrc ? '<img class="property-card-img" src="' + imgSrc + '" alt="">' : '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;color:#86868b;font-size:2rem">🏠</div>';
                     html += '<div class="property-card-body">';
                     html += '<div class="property-card-price">' + price + '</div>';
