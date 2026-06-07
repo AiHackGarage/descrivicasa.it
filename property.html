@@ -10,6 +10,8 @@
     <meta name="robots" content="index, follow">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="DescriviCasa.it">
+    <meta property="og:title" content="">
+    <meta name="description" content="">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -279,8 +281,10 @@
                 // SEO meta
                 const title = p.title || propertyTypeLabel(p.property_type) + (p.city ? ' in ' + p.city : '');
                 document.title = title + ' — DescriviCasa.it';
-                document.querySelector('meta[property="og:title"]').content = title;
-                if (p.description) document.querySelector('meta[name="description"]').content = p.description.slice(0, 200);
+                const ogTitle = document.querySelector('meta[property="og:title"]');
+                if (ogTitle) ogTitle.content = title;
+                const descMeta = document.querySelector('meta[name="description"]');
+                if (descMeta && p.description) descMeta.content = p.description.slice(0, 200);
                 if (p.photos && p.photos[0]) {
                     const m = document.createElement('meta');
                     m.setAttribute('property', 'og:image');
