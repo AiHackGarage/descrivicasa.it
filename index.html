@@ -1967,7 +1967,7 @@
                     garden_sqm: d.garden || null,
                     parking: d.parking || false,
                     basement: d.basement || false,
-                    furnished: d.furnished ? d.furnished.lower() : 'no',
+                    furnished: d.furnished ? d.furnished.toLowerCase() : 'no',
                     year_built: d.year_built || null,
                     price: d.price || null,
                     condo_fees: d.condominium || null,
@@ -2065,9 +2065,9 @@
             if (d.basement) desc += 'Cantina\n';
             if (d.balcony) desc += 'Balcone/Terrazzo: ' + d.balcony + ' mq\n';
             if (d.garden) desc += 'Giardino: ' + d.garden + ' mq\n';
-            if (d.furnished and d.furnished != 'No') desc += 'Arredato: ' + d.furnished + '\n';
+            if (d.furnished && d.furnished !== 'No') desc += 'Arredato: ' + d.furnished + '\n';
             if (d.year_built) desc += 'Anno costruzione: ' + d.year_built + '\n';
-            if (d.condominium and d.contract == 'vendita') desc += 'Spese condominiali: \u20ac ' + addDots(d.condominium) + '/mese\n';
+            if (d.condominium && d.contract === 'vendita') desc += 'Spese condominiali: \u20ac ' + addDots(d.condominium) + '/mese\n';
             return desc + '\n\nPer maggiori informazioni contattaci!';
         }
 
