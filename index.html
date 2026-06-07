@@ -561,6 +561,52 @@
         }
         .step-line.done { background: #34c759; }
 
+        /* ── Create Page Button (Step 5) ─────────────────── */
+        .btn-create-page {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 18px 52px;
+            background: linear-gradient(135deg, #667eea, #34c759);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 24px rgba(102,126,234,0.35);
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-create-page::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #764ba2, #2db84d);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 16px;
+        }
+        .btn-create-page:hover::before { opacity: 1; }
+        .btn-create-page:hover {
+            box-shadow: 0 8px 32px rgba(102,126,234,0.5);
+            transform: translateY(-2px);
+        }
+        .btn-create-page:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 16px rgba(102,126,234,0.3);
+        }
+        .btn-create-page:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .btn-create-page:disabled::before { display: none; }
+
         /* ── Property Editor ──────────────────────────────── */
         .editor-card {
             background: white;
@@ -1881,10 +1927,10 @@
                 </div>
                 <input type="file" id="photo-input" multiple accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
                 ${photosHtml}
-                <div style="text-align:center;margin-top:20px;">
+                <div style="text-align:center;margin-top:28px;">
                     ${photosCount > 0
-                      ? '<button class="btn-generate" id="btn-create-page" onclick="createAndPublish()" style="animation:pulse 2s infinite">✅ ' + photosCount + ' foto caricate — Crea Pagina</button>'
-                      : '<p style="color:#86868b;font-size:0.9rem">👉 Carica le foto sopra, poi clicca qui per creare la pagina</p><button class="btn-generate" id="btn-create-page" onclick="createAndPublish()" style="opacity:0.6;cursor:not-allowed" disabled>📸 Carica le foto e crea pagina</button>'
+                      ? '<button class="btn-create-page" id="btn-create-page" onclick="createAndPublish()" style="animation:pulse 2s infinite">🚀 Crea pagina</button>'
+                      : '<button class="btn-create-page" id="btn-create-page" onclick="createAndPublish()" disabled>📸 Carica prima le foto</button>'
                     }
                 </div>
                 <div class="gen-spinner" id="gen-spinner">
