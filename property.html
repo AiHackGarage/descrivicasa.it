@@ -362,9 +362,9 @@
 <body>
     <!-- ── Top Bar ──────────────────────────────────────────── -->
     <div class="topbar">
-        <a class="topbar-logo" onclick="navigateTo('landing')">🏠 DescriviCasa.it</a>
+        <a class="topbar-logo" href="/">🏠 DescriviCasa.it</a>
         <div class="topbar-links">
-            <a onclick="navigateTo('landing')">Home</a>
+            <a href="/">Home</a>
             <a href="/pricing">Prezzi</a>
         </div>
         <div class="topbar-auth" id="topbar-auth">
@@ -372,7 +372,7 @@
             <button class="btn-auth btn-auth-primary" onclick="showModal('register')">Registrati</button>
         </div>
         <div class="topbar-user" id="topbar-user" style="display:none">
-            <div class="user-trigger" onclick="toggleProfile()">
+            <div class="user-trigger" onclick="window.location.href='/'">
                 <img id="user-avatar" class="user-avatar" src="" alt="">
                 <span id="user-name" class="user-name"></span>
                 <span class="user-generations" id="user-generations"></span>
@@ -435,6 +435,16 @@
             </div>
         </div>
     </div>
+    <div class="loading" id="loading">
+        <div class="spinner" style="width:40px;height:40px;border:4px solid #e8e8ed;border-top-color:#667eea;border-radius:50%;animation:spin .8s linear infinite"></div>
+        <p style="color:#86868b">Caricamento immobile...</p>
+    </div>
+    <div class="error-page" id="error-page" style="display:none">
+        <h2>😕 Immobile non trovato</h2>
+        <p>Il link potrebbe essere scaduto o l'annuncio è stato rimosso.</p>
+        <a href="/" style="display:inline-block;margin-top:20px;padding:12px 28px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-decoration:none;font-weight:600">← Torna alla Home</a>
+    </div>
+    <div id="property-content" style="display:none">
     <div class="hero" id="hero-section">
             <h1 id="prop-title"></h1>
             <p class="address" id="prop-address"></p>
@@ -491,6 +501,7 @@
     <div class="footer">
         DescriviCasa.it &copy; 2026 &mdash; Annunci immobiliari professionali con AI
     </div>
+    </div><!-- /property-content -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>

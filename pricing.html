@@ -342,9 +342,9 @@
 <body>
 <!-- ── Top Bar ──────────────────────────────────────────── -->
     <div class="topbar">
-        <a class="topbar-logo" onclick="navigateTo('landing')">🏠 DescriviCasa.it</a>
+        <a class="topbar-logo" href="/">🏠 DescriviCasa.it</a>
         <div class="topbar-links">
-            <a onclick="navigateTo('landing')">Home</a>
+            <a href="/">Home</a>
             <a href="/pricing">Prezzi</a>
         </div>
         <div class="topbar-auth" id="topbar-auth">
@@ -352,7 +352,7 @@
             <button class="btn-auth btn-auth-primary" onclick="showModal('register')">Registrati</button>
         </div>
         <div class="topbar-user" id="topbar-user" style="display:none">
-            <div class="user-trigger" onclick="toggleProfile()">
+            <div class="user-trigger" onclick="window.location.href='/'">
                 <img id="user-avatar" class="user-avatar" src="" alt="">
                 <span id="user-name" class="user-name"></span>
                 <span class="user-generations" id="user-generations"></span>
@@ -362,7 +362,6 @@
         </div>
     </div>
 
-    
 <!-- ── Auth Modal ─────────────────────────────────────── -->
     <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
         <div class="modal">
