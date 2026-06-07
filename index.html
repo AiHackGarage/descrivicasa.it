@@ -2028,11 +2028,10 @@
             showPropertyDetail(id);
         }
 
-        async 
         function addDots(n) {
             return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
-function showPropertyDetail(id) {
+        async function showPropertyDetail(id) {
             const container = document.getElementById('detail-content');
             container.innerHTML = '<div style="text-align:center;padding:30px"><div class="spinner"></div><p style="color:#86868b">Caricamento...</p></div>';
             try {
