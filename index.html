@@ -8,6 +8,9 @@
     <meta name="keywords" content="descrizione immobiliare, agenzia immobiliare, AI, intelligenza artificiale, vendita casa, annuncio immobiliare, copywriting immobiliare">
     <meta name="author" content="DescriviCasa.it">
     <meta name="robots" content="index, follow">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/favicon.png">
     <link rel="canonical" href="https://descrivicasa.it/">
     
     <!-- Open Graph / Social -->
@@ -2102,9 +2105,6 @@ function showPropertyDetail(id) {
                 if (msg) { msg.classList.add("show"); setTimeout(() => msg.classList.remove("show"), 2500); }
             });
         }
-            });
-        }
-
         function shareDetail(platform, id) {
             const url = window.location.origin + '/p/' + id;
             const text = '🏠 Scopri questo immobile su DescriviCasa.it';
