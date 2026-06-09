@@ -685,7 +685,7 @@ app.post('/api/properties', authMiddleware, upload.array('files', 10), async (re
 app.get('/api/properties', authMiddleware, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, uuid, contract_type, property_type, address, city, province, surface, rooms, bathrooms, price, status, is_public, title, description IS NOT NULL AS has_description, created_at, updated_at FROM properties WHERE user_id = ? ORDER BY updated_at DESC',
+      'SELECT id, uuid, contract_type, property_type, address, city, province, surface, rooms, bathrooms, price, status, is_public, title, photos, description IS NOT NULL AS has_description, created_at, updated_at FROM properties WHERE user_id = ? ORDER BY updated_at DESC',
       [req.user.id]
     );
     res.json({ properties: rows });

@@ -519,6 +519,92 @@
         .dashboard-empty p { font-size: 1rem; }
         .dashboard-empty .btn-primary { margin-top: 20px; display: inline-block; }
 
+        /* ── Dashboard Search / Filters ───────────────────── */
+        .dashboard-toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid #e8e8ed;
+        }
+        .dashboard-toolbar .search-wrap {
+            flex: 1;
+            min-width: 180px;
+            position: relative;
+        }
+        .dashboard-toolbar .search-wrap input {
+            width: 100%;
+            padding: 10px 14px 10px 38px;
+            border: 1px solid #e8e8ed;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: #f5f5f7;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .dashboard-toolbar .search-wrap input:focus {
+            border-color: #667eea;
+            background: white;
+        }
+        .dashboard-toolbar .search-wrap .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+            color: #86868b;
+            pointer-events: none;
+        }
+        .dashboard-toolbar .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .dashboard-toolbar .filter-group label {
+            font-size: 0.8rem;
+            color: #86868b;
+            font-weight: 500;
+        }
+        .dashboard-toolbar .filter-group input,
+        .dashboard-toolbar .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #e8e8ed;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            background: #f5f5f7;
+            outline: none;
+            max-width: 120px;
+            transition: border-color 0.2s;
+        }
+        .dashboard-toolbar .filter-group input:focus,
+        .dashboard-toolbar .filter-group select:focus {
+            border-color: #667eea;
+            background: white;
+        }
+        .dashboard-toolbar .filter-group .price-input { max-width: 100px; }
+        .dashboard-filter-count {
+            font-size: 0.8rem;
+            color: #86868b;
+            padding: 4px 0;
+        }
+        .btn-filter-clear {
+            padding: 8px 14px;
+            border: 1px solid #e8e8ed;
+            border-radius: 8px;
+            background: white;
+            color: #86868b;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-filter-clear:hover { background: #f5f5f7; color: #1d1d1f; }
+
         /* ── Step Progress Bar ────────────────────────────── */
         .step-progress {
             display: flex;
@@ -1116,6 +1202,32 @@
                 <h2>📋 I tuoi immobili</h2>
                 <button class="btn-primary" onclick="newProperty()">➕ Nuovo immobile</button>
             </div>
+            <div class="dashboard-toolbar">
+                <div class="search-wrap">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="filter-search" placeholder="Cerca per indirizzo, città, descrizione..." oninput="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>Prezzo</label>
+                    <input type="number" id="filter-price-min" class="price-input" placeholder="Da €" oninput="applyFilters()">
+                    <input type="number" id="filter-price-max" class="price-input" placeholder="A €" oninput="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>Zona</label>
+                    <input type="text" id="filter-zone" placeholder="Città/zona" style="max-width:130px" oninput="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>Data</label>
+                    <select id="filter-date" onchange="applyFilters()">
+                        <option value="">Tutto</option>
+                        <option value="7">Ultimi 7 giorni</option>
+                        <option value="30">Ultimi 30 giorni</option>
+                        <option value="90">Ultimi 3 mesi</option>
+                        <option value="365">Ultimo anno</option>
+                    </select>
+                </div>
+                <button class="btn-filter-clear" onclick="clearFilters()">✕ Cancella</button>
+            </div>
             <div id="dashboard-content"></div>
         </div>
 
@@ -1469,6 +1581,8 @@
         // ════════════════════════════════════════════════════════
         // DASHBOARD
         // ════════════════════════════════════════════════════════
+        let _dashboardProperties = [];
+
         async function loadDashboard() {
             const content = document.getElementById('dashboard-content');
             content.innerHTML = '<div style="text-align:center;padding:30px"><div class="spinner"></div><p style="color:#86868b">Caricamento...</p></div>';
@@ -1479,33 +1593,93 @@
                 const data = await res.json();
                 if (data.error) { content.innerHTML = '<div class="error-msg show">' + data.error + '</div>'; return; }
                 const properties = (data && data.properties) ? data.properties : (Array.isArray(data) ? data : []);
-                const arr = Array.isArray(properties) ? properties : [];
-                if (arr.length === 0) {
+                _dashboardProperties = Array.isArray(properties) ? properties : [];
+                if (_dashboardProperties.length === 0) {
                     content.innerHTML = '<div class="dashboard-empty"><div class="big-icon">🏠</div><p>Nessun immobile ancora inserito.</p><button class="btn-primary" onclick="newProperty()">➕ Aggiungi il primo immobile</button></div>';
                     return;
                 }
-                let html = '<div class="property-grid">';
-                arr.forEach(p => {
-                    const price = p.contract_type === 'rent' ? '€ ' + (p.price || 0) + '/mese' : '€ ' + (p.price || 0);
-                    const pht = typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []);
-                    const imgSrc = pht.length > 0 ? pht[0] : '';
-                    const address = p.address || p.city || 'Indirizzo non specificato';
-                    html += '<div class="property-card" onclick="window.location.href=\'/p/' + (p.uuid || p.id) + '\'">';
-                    html += imgSrc ? '<img class="property-card-img" src="' + imgSrc + '" alt="">' : '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;color:#86868b;font-size:2rem">🏠</div>';
-                    html += '<div class="property-card-body">';
-                    html += '<div class="property-card-price">' + price + '</div>';
-                    html += '<div class="property-card-address">' + escapeHtml(address) + '</div>';
-                    html += '<div class="property-card-meta">';
-                    if (p.surface) html += '<span>📐 ' + p.surface + ' mq</span>';
-                    if (p.rooms) html += '<span>🛏️ ' + p.rooms + '</span>';
-                    if (p.bathrooms) html += '<span>🚿 ' + p.bathrooms + '</span>';
-                    html += '</div></div></div>';
-                });
-                html += '</div>';
-                content.innerHTML = html;
+                renderDashboard();
             } catch (err) {
                 content.innerHTML = '<div class="error-msg show">Errore di connessione: ' + err.message + '</div>';
             }
+        }
+
+        function renderDashboard() {
+            const content = document.getElementById('dashboard-content');
+            let arr = _dashboardProperties;
+
+            // Read filter values
+            const q = (document.getElementById('filter-search')?.value || '').toLowerCase().trim();
+            const priceMin = parseFloat(document.getElementById('filter-price-min')?.value) || 0;
+            const priceMax = parseFloat(document.getElementById('filter-price-max')?.value) || 0;
+            const zone = (document.getElementById('filter-zone')?.value || '').toLowerCase().trim();
+            const dateDays = parseInt(document.getElementById('filter-date')?.value) || 0;
+
+            // Apply filters
+            if (q || priceMin || priceMax || zone || dateDays) {
+                const cutoff = dateDays ? Date.now() - dateDays * 86400000 : 0;
+                arr = arr.filter(p => {
+                    // Keyword search
+                    if (q) {
+                        const haystack = [
+                            p.address, p.city, p.province, p.title, p.property_type,
+                            p.description, p.contract_type
+                        ].filter(Boolean).join(' ').toLowerCase();
+                        if (!haystack.includes(q)) return false;
+                    }
+                    // Price range
+                    const pVal = parseFloat(p.price) || 0;
+                    if (priceMin && pVal < priceMin) return false;
+                    if (priceMax && pVal > priceMax) return false;
+                    // Zone
+                    if (zone) {
+                        const loc = [p.address, p.city, p.province].filter(Boolean).join(' ').toLowerCase();
+                        if (!loc.includes(zone)) return false;
+                    }
+                    // Date
+                    if (cutoff) {
+                        const created = new Date(p.created_at || p.updated_at).getTime();
+                        if (created < cutoff) return false;
+                    }
+                    return true;
+                });
+            }
+
+            if (arr.length === 0) {
+                content.innerHTML = '<div class="dashboard-empty"><div class="big-icon">🔍</div><p>Nessun immobile corrisponde ai filtri.</p><button class="btn-primary" onclick="clearFilters()">✕ Cancella filtri</button></div>';
+                return;
+            }
+
+            let html = '<div class="property-grid">';
+            arr.forEach(p => {
+                const price = p.contract_type === 'rent' ? '€ ' + (p.price || 0) + '/mese' : '€ ' + (p.price || 0);
+                const pht = typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []);
+                const imgSrc = pht.length > 0 ? pht[0] : '';
+                const address = p.address || p.city || 'Indirizzo non specificato';
+                html += '<div class="property-card" onclick="window.location.href=\'/p/' + (p.uuid || p.id) + '\'">';
+                html += imgSrc ? '<img class="property-card-img" src="' + imgSrc + '" alt="">' : '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;color:#86868b;font-size:2rem">🏠</div>';
+                html += '<div class="property-card-body">';
+                html += '<div class="property-card-price">' + price + '</div>';
+                html += '<div class="property-card-address">' + escapeHtml(address) + '</div>';
+                html += '<div class="property-card-meta">';
+                if (p.surface) html += '<span>📐 ' + p.surface + ' mq</span>';
+                if (p.rooms) html += '<span>🛏️ ' + p.rooms + '</span>';
+                if (p.bathrooms) html += '<span>🚿 ' + p.bathrooms + '</span>';
+                html += '</div></div></div>';
+            });
+            html += '</div>';
+            html += '<div class="dashboard-filter-count">Mostrati ' + arr.length + ' di ' + _dashboardProperties.length + ' immobili</div>';
+            content.innerHTML = html;
+        }
+
+        function applyFilters() {
+            renderDashboard();
+        }
+
+        function clearFilters() {
+            const ids = ['filter-search', 'filter-price-min', 'filter-price-max', 'filter-zone', 'filter-date'];
+            ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            renderDashboard();
         }
 
         // ════════════════════════════════════════════════════════
