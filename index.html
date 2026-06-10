@@ -912,6 +912,42 @@
         }
         .btn-prev:hover { background: #e8e8ed; }
 
+        /* ── Single-Page Edit View ──────────────────────── */
+        .edit-section {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .edit-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+            color: #1d1d1f;
+        }
+        .edit-section .sub {
+            color: #86868b;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+        .edit-save-bar {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            border-top: 2px solid #667eea;
+            padding: 16px 24px;
+            margin: 24px -20px -30px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            z-index: 50;
+        }
+        .edit-save-bar .btn-primary {
+            padding: 14px 48px;
+            font-size: 1rem;
+        }
+
         /* ── Property Detail View ─────────────────────────── */
         .detail-header {
             display: flex;
@@ -1237,6 +1273,11 @@
             <div class="editor-card">
                 <div id="editor-step-content"></div>
             </div>
+        </div>
+
+        <!-- ── VIEW: Edit (single-page) ─────────────────────── -->
+        <div class="view" id="view-edit">
+            <div id="edit-content"></div>
         </div>
 
         <!-- ── VIEW: Property Detail ────────────────────────── -->
@@ -1772,8 +1813,304 @@
         }
 
         function editProperty(uuid) {
-            // Navigate to the property page in edit mode
-            window.location.href = '/p/' + uuid + '?edit=1';
+            // Navigate to the single-page edit view
+            window.location.href = '/?edit=' + uuid;
+        }
+
+        // ════════════════════════════════════════════════════════
+        // SINGLE-PAGE EDITOR
+        // ════════════════════════════════════════════════════════
+        let editState = {
+            id: null,
+            uuid: null,
+            data: {}
+        };
+
+        function loadEditPage(uuid) {
+            editState.uuid = uuid;
+            navigateTo('edit');
+            const content = document.getElementById('edit-content');
+            content.innerHTML = '<div style="text-align:center;padding:60px"><div class="spinner"></div><p style="color:#86868b">Caricamento dati...</p></div>';
+
+            fetch('/api/p/' + uuid)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { content.innerHTML = '<div class="error-msg show">' + data.error + '</div>'; return; }
+                const p = data.property || data;
+                editState.id = p.id;
+                editState.data = {
+                    contract: p.contract_type === 'sell' ? 'vendita' : 'affitto',
+                    type: p.property_type || 'Appartamento',
+                    price: p.price || '',
+                    condominium: p.condo_fees || '',
+                    address: p.address || '',
+                    city: p.city || '',
+                    province: p.province || '',
+                    lat: p.latitude || 41.9028,
+                    lng: p.longitude || 12.4964,
+                    surface: p.surface || '',
+                    rooms: p.rooms || '',
+                    bedrooms: p.bedrooms || '',
+                    bathrooms: p.bathrooms || '',
+                    floor: p.floor !== null && p.floor !== undefined ? p.floor : '',
+                    total_floors: p.total_floors || '',
+                    elevator: !!p.elevator,
+                    condition: p.building_state || 'Nuovo',
+                    energy_class: p.energy_class || 'A4',
+                    heating: p.heating || 'Autonomo',
+                    air_conditioning: !!p.air_conditioning,
+                    exposure: p.exposure || '',
+                    balcony: p.balcony_sqm || '',
+                    garden: p.garden_sqm || '',
+                    parking: !!p.parking,
+                    basement: !!p.basement,
+                    furnished: p.furnished || 'no',
+                    year_built: p.year_built || '',
+                    description: p.description || '',
+                    title: p.title || '',
+                    photos: typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || [])
+                };
+                renderEditPage();
+                setTimeout(initEditMap, 200);
+            })
+            .catch(err => {
+                content.innerHTML = '<div class="error-msg show">Errore: ' + err.message + '</div>';
+            });
+        }
+
+        function renderEditPage() {
+            const d = editState.data;
+            const content = document.getElementById('edit-content');
+
+            const typeOptions = ['Appartamento','Villa','Schiera','Attico','Monolocale','Ufficio','Negozio','Terreno','Magazzino','Box','Fabbricato'];
+            const stateOptions = ['Nuovo','Ristrutturato','Abitabile','Da ristrutturare'];
+            const energyOptions = ['A4','A3','A2','A1','B','C','D','E','F','G'];
+            const heatingOptions = ['Autonomo','Centralizzato','Riscaldamento a pavimento','Stufa'];
+            const furnishedOptions = ['no','yes','partial'];
+
+            const photosHtml = d.photos && d.photos.length > 0
+                ? '<div class="photo-preview-grid">' + d.photos.map((p, i) => {
+                    const src = typeof p === 'string' ? p : (p.url || '');
+                    return '<div class="photo-preview-item"><img src="' + src + '" alt=""><button class="photo-remove" onclick="removeEditPhoto(' + i + ')">✕</button></div>';
+                }).join('') + '</div>'
+                : '<p style="color:#86868b;font-size:0.85rem">Nessuna foto caricata</p>';
+
+            let html = '';
+
+            // Section 1: Tipo e Prezzo
+            html += '<div class="edit-section">';
+            html += '<h3>💰 Tipo e Prezzo</h3>';
+            html += '<div class="form-group"><label>Contratto</label><div class="toggle-group">';
+            html += '<button class="toggle-btn ' + (d.contract === 'vendita' ? 'active' : '') + '" onclick="editState.data.contract=\'vendita\';renderEditPage()">Vendita</button>';
+            html += '<button class="toggle-btn ' + (d.contract === 'affitto' ? 'active' : '') + '" onclick="editState.data.contract=\'affitto\';renderEditPage()">Affitto</button>';
+            html += '</div></div>';
+            html += '<div class="form-group"><label>Tipo immobile</label><select onchange="editState.data.type=this.value">';
+            typeOptions.forEach(t => html += '<option value="' + t + '"' + (d.type === t ? ' selected' : '') + '>' + t + '</option>');
+            html += '</select></div>';
+            html += '<div class="form-group"><label>Prezzo (€)</label><input type="number" value="' + d.price + '" onchange="editState.data.price=this.value" placeholder="es. 250000"></div>';
+            if (d.contract === 'vendita') {
+                html += '<div class="form-group"><label>Spese condominiali (€)</label><input type="number" value="' + d.condominium + '" onchange="editState.data.condominium=this.value" placeholder="es. 150"></div>';
+            }
+            html += '</div>';
+
+            // Section 2: Posizione
+            html += '<div class="edit-section">';
+            html += '<h3>📍 Posizione</h3>';
+            html += '<div class="form-group"><label>Indirizzo</label><input type="text" value="' + escapeHtml(d.address) + '" onchange="editState.data.address=this.value" placeholder="es. Via Roma, 12"></div>';
+            html += '<div class="form-row"><div class="form-group"><label>Città</label><input type="text" value="' + escapeHtml(d.city) + '" onchange="editState.data.city=this.value" placeholder="es. Roma"></div>';
+            html += '<div class="form-group"><label>Provincia</label><input type="text" value="' + escapeHtml(d.province) + '" onchange="editState.data.province=this.value" placeholder="es. RM"></div></div>';
+            html += '<div id="edit-map" style="height:250px;border-radius:12px;margin-top:12px"></div>';
+            html += '<div class="map-coords" style="font-size:0.8rem;color:#86868b;margin-top:6px">Lat: ' + d.lat.toFixed(5) + ', Lng: ' + d.lng.toFixed(5);
+            html += ' <button class="btn-secondary" onclick="searchEditMap()" style="padding:4px 12px;font-size:0.8rem">🔍 Cerca</button></div>';
+            html += '</div>';
+
+            // Section 3: Caratteristiche
+            html += '<div class="edit-section">';
+            html += '<h3>📐 Caratteristiche</h3>';
+            html += '<div class="form-row three"><div class="form-group"><label>Superficie (mq)</label><input type="number" value="' + d.surface + '" onchange="editState.data.surface=this.value" placeholder="es. 100"></div>';
+            html += '<div class="form-group"><label>Locali</label><input type="number" value="' + d.rooms + '" onchange="editState.data.rooms=this.value" placeholder="es. 5"></div>';
+            html += '<div class="form-group"><label>Camere da letto</label><input type="number" value="' + d.bedrooms + '" onchange="editState.data.bedrooms=this.value" placeholder="es. 2"></div></div>';
+            html += '<div class="form-row three"><div class="form-group"><label>Bagni</label><input type="number" value="' + d.bathrooms + '" onchange="editState.data.bathrooms=this.value" placeholder="es. 2"></div>';
+            html += '<div class="form-group"><label>Piano</label><input type="number" value="' + d.floor + '" onchange="editState.data.floor=this.value" placeholder="es. 3"></div>';
+            html += '<div class="form-group"><label>Totale piani</label><input type="number" value="' + d.total_floors + '" onchange="editState.data.total_floors=this.value" placeholder="es. 6"></div></div>';
+            html += '<div class="form-row"><div class="form-group"><label class="checkbox-label"><input type="checkbox" ' + (d.elevator ? 'checked' : '') + ' onchange="editState.data.elevator=this.checked"><span>Ascensore</span></label></div>';
+            html += '<div class="form-group"><label>Stato</label><select onchange="editState.data.condition=this.value">';
+            stateOptions.forEach(s => html += '<option value="' + s + '"' + (d.condition === s ? ' selected' : '') + '>' + s + '</option>');
+            html += '</select></div></div></div>';
+
+            // Section 4: Dettagli
+            html += '<div class="edit-section">';
+            html += '<h3>🔧 Dettagli extra</h3>';
+            html += '<div class="form-row"><div class="form-group"><label>Classe energetica</label><select onchange="editState.data.energy_class=this.value">';
+            energyOptions.forEach(c => html += '<option value="' + c + '"' + (d.energy_class === c ? ' selected' : '') + '>' + c + '</option>');
+            html += '</select></div><div class="form-group"><label>Riscaldamento</label><select onchange="editState.data.heating=this.value">';
+            heatingOptions.forEach(h => html += '<option value="' + h + '"' + (d.heating === h ? ' selected' : '') + '>' + h + '</option>');
+            html += '</select></div></div>';
+            html += '<div class="form-row three"><div class="form-group"><label>Esposizione</label><input type="text" value="' + escapeHtml(d.exposure) + '" onchange="editState.data.exposure=this.value" placeholder="es. Nord"></div>';
+            html += '<div class="form-group"><label>Balcone/Terrazzo (mq)</label><input type="number" value="' + d.balcony + '" onchange="editState.data.balcony=this.value" placeholder="es. 20"></div>';
+            html += '<div class="form-group"><label>Giardino (mq)</label><input type="number" value="' + d.garden + '" onchange="editState.data.garden=this.value" placeholder="es. 50"></div></div>';
+            html += '<div class="form-row three"><div class="form-group"><label class="checkbox-label"><input type="checkbox" ' + (d.air_conditioning ? 'checked' : '') + ' onchange="editState.data.air_conditioning=this.checked"><span>Aria condizionata</span></label></div>';
+            html += '<div class="form-group"><label class="checkbox-label"><input type="checkbox" ' + (d.parking ? 'checked' : '') + ' onchange="editState.data.parking=this.checked"><span>Posto auto</span></label></div>';
+            html += '<div class="form-group"><label class="checkbox-label"><input type="checkbox" ' + (d.basement ? 'checked' : '') + ' onchange="editState.data.basement=this.checked"><span>Cantina</span></label></div></div>';
+            html += '<div class="form-row"><div class="form-group"><label>Arredato</label><select onchange="editState.data.furnished=this.value">';
+            html += '<option value="no"' + (d.furnished === 'no' ? ' selected' : '') + '>No</option>';
+            html += '<option value="yes"' + (d.furnished === 'yes' ? ' selected' : '') + '>Sì</option>';
+            html += '<option value="partial"' + (d.furnished === 'partial' ? ' selected' : '') + '>Parzialmente</option>';
+            html += '</select></div><div class="form-group"><label>Anno costruzione</label><input type="number" value="' + d.year_built + '" onchange="editState.data.year_built=this.value" placeholder="es. 2005" min="1800" max="2030"></div></div>';
+            html += '</div>';
+
+            // Section 5: Descrizione (plain text, editable)
+            html += '<div class="edit-section">';
+            html += '<h3>📝 Descrizione e Titolo</h3>';
+            html += '<p class="sub">Personalizza la descrizione e il titolo dell\'annuncio</p>';
+            html += '<div class="form-group"><label>Titolo annuncio</label><input type="text" value="' + escapeHtml(d.title || '') + '" onchange="editState.data.title=this.value" placeholder="es. Appartamento luminoso in zona Prati"></div>';
+            html += '<div class="form-group"><label>Descrizione</label><textarea style="width:100%;min-height:200px;padding:12px;border:1px solid #d2d2d7;border-radius:10px;font-family:inherit;font-size:0.95rem;line-height:1.7;resize:vertical" onchange="editState.data.description=this.value" placeholder="Scrivi o modifica la descrizione dell\'immobile...">' + escapeHtml(d.description || '') + '</textarea></div>';
+            html += '</div>';
+
+            // Section 6: Foto
+            html += '<div class="edit-section">';
+            html += '<h3>📸 Foto</h3>';
+            html += '<div class="photo-dropzone" onclick="document.getElementById(\'edit-photo-input\').click()"><div class="dz-icon">📷</div><p>Clicca per aggiungere foto</p></div>';
+            html += '<input type="file" id="edit-photo-input" multiple accept="image/*" style="display:none" onchange="handleEditPhotoSelect(event)">';
+            html += photosHtml;
+            html += '</div>';
+
+            // Save bar
+            html += '<div class="edit-save-bar">';
+            html += '<button class="btn-secondary" onclick="window.location.href=\'/p/' + editState.uuid + '\'">Annulla</button>';
+            html += '<button class="btn-primary" onclick="saveEditPage()">💾 Salva modifiche</button>';
+            html += '</div>';
+
+            content.innerHTML = html;
+            window.scrollTo(0, 0);
+        }
+
+        function handleEditPhotoSelect(e) {
+            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            if (files.length === 0) return;
+            const remaining = 10 - (editState.data.photos ? editState.data.photos.length : 0);
+            files.slice(0, remaining).forEach(f => {
+                editState.data.photos.push({ url: URL.createObjectURL(f), file: f, isNew: true });
+            });
+            renderEditPage();
+            setTimeout(initEditMap, 200);
+        }
+
+        function removeEditPhoto(idx) {
+            editState.data.photos.splice(idx, 1);
+            renderEditPage();
+            setTimeout(initEditMap, 200);
+        }
+
+        let editMap = null;
+        let editMarker = null;
+
+        function initEditMap() {
+            const mapDiv = document.getElementById('edit-map');
+            if (!mapDiv) return;
+            if (editMap) { try { editMap.remove(); } catch(e) {} editMap = null; editMarker = null; }
+            const d = editState.data;
+            editMap = L.map('edit-map').setView([d.lat, d.lng], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(editMap);
+            editMarker = L.marker([d.lat, d.lng], { draggable: true }).addTo(editMap);
+            editMarker.on('dragend', (e) => {
+                editState.data.lat = e.target.getLatLng().lat;
+                editState.data.lng = e.target.getLatLng().lng;
+                updateEditCoords();
+            });
+            editMap.on('click', (e) => {
+                editState.data.lat = e.latlng.lat;
+                editState.data.lng = e.latlng.lng;
+                editMarker.setLatLng(e.latlng);
+                updateEditCoords();
+            });
+        }
+
+        function updateEditCoords() {
+            const d = editState.data;
+            const mc = document.querySelector('#view-edit .map-coords');
+            if (mc) mc.innerHTML = 'Lat: ' + d.lat.toFixed(5) + ', Lng: ' + d.lng.toFixed(5) + ' <button class="btn-secondary" onclick="searchEditMap()" style="padding:4px 12px;font-size:0.8rem">🔍 Cerca</button>';
+        }
+
+        function searchEditMap() {
+            const d = editState.data;
+            const query = (d.address + ', ' + d.city + ', ' + d.province).trim();
+            if (!query || query === ', , ') { alert('Inserisci un indirizzo prima di cercare'); return; }
+            fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query) + '&limit=1&accept-language=it')
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.length > 0) {
+                    editState.data.lat = parseFloat(data[0].lat);
+                    editState.data.lng = parseFloat(data[0].lon);
+                    if (editMarker) editMarker.setLatLng([editState.data.lat, editState.data.lng]);
+                    if (editMap) editMap.setView([editState.data.lat, editState.data.lng], 15);
+                    updateEditCoords();
+                } else { alert('Nessun risultato trovato'); }
+            })
+            .catch(err => alert('Errore: ' + err.message));
+        }
+
+        async function saveEditPage() {
+            const d = editState.data;
+            const btn = document.querySelector('#view-edit .btn-primary');
+            btn.textContent = '⏳ Salvataggio...';
+            btn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('data', JSON.stringify({
+                    contract_type: d.contract === 'vendita' ? 'sell' : 'rent',
+                    property_type: d.type ? d.type.toLowerCase() : 'apartment',
+                    address: d.address || '',
+                    city: d.city || '',
+                    province: d.province || '',
+                    latitude: d.lat,
+                    longitude: d.lng,
+                    surface: d.surface || null,
+                    rooms: d.rooms || null,
+                    bedrooms: d.bedrooms || null,
+                    bathrooms: d.bathrooms || null,
+                    floor: d.floor !== '' ? d.floor : null,
+                    total_floors: d.total_floors || null,
+                    elevator: d.elevator || false,
+                    building_state: d.condition || null,
+                    energy_class: d.energy_class || null,
+                    heating: d.heating || null,
+                    air_conditioning: d.air_conditioning || false,
+                    exposure: d.exposure || null,
+                    balcony_sqm: d.balcony || null,
+                    garden_sqm: d.garden || null,
+                    parking: d.parking || false,
+                    basement: d.basement || false,
+                    furnished: d.furnished || 'no',
+                    year_built: d.year_built || null,
+                    price: d.price || null,
+                    condo_fees: d.condominium || null,
+                    title: d.title || null,
+                    description: d.description || null,
+                }));
+
+                // Append new photos
+                if (d.photos) {
+                    d.photos.forEach(ph => {
+                        if (ph.isNew && ph.file) formData.append('files', ph.file);
+                    });
+                }
+
+                const res = await fetch('/api/properties/' + editState.id, {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + authToken },
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.error) { alert(data.error); btn.textContent = '💾 Salva modifiche'; btn.disabled = false; return; }
+
+                window.location.href = '/p/' + editState.uuid;
+            } catch (err) {
+                alert('Errore: ' + err.message);
+                btn.textContent = '💾 Salva modifiche';
+                btn.disabled = false;
+            }
         }
 
         function deleteProperty(id) {
@@ -2379,6 +2716,27 @@
         }
         checkUrlForDetail();
         window.addEventListener('popstate', checkUrlForDetail);
+
+        // Check for ?edit=UUID parameter
+        (function checkEditParam() {
+            const params = new URLSearchParams(window.location.search);
+            const editUuid = params.get('edit');
+            if (editUuid) {
+                // Wait for auth to be ready, then load editor
+                const tryLoad = () => {
+                    if (authToken && currentUser) {
+                        loadEditPage(editUuid);
+                    } else if (authToken && !currentUser) {
+                        // Still waiting for /api/me
+                        setTimeout(tryLoad, 300);
+                    } else {
+                        // Not logged in — redirect to login
+                        showModal('login');
+                    }
+                };
+                setTimeout(tryLoad, 500);
+            }
+        })();
     </script>
 </body>
 </html>
