@@ -1569,6 +1569,10 @@
         // SPA NAVIGATION
         // ════════════════════════════════════════════════════════
         function navigateTo(view) {
+            // If logged in and trying to go to landing, redirect to dashboard
+            if (view === 'landing' && authToken && currentUser) {
+                view = 'dashboard';
+            }
             // Hide all views
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             // Show target
@@ -1576,6 +1580,7 @@
             if (target) target.classList.add('active');
             currentView = view;
             window.scrollTo(0, 0);
+            if (view === 'dashboard') loadDashboard();
         }
 
         // ════════════════════════════════════════════════════════
@@ -1667,7 +1672,7 @@
                 if (p.bathrooms) html += '<span>🚿 ' + p.bathrooms + '</span>';
                 html += '</div></div>';
                 html += '<div class="property-card-actions" onclick="event.stopPropagation()">';
-                html += '<button style="background:#667eea;color:white" onclick="editProperty(' + p.id + ')">✏️ Modifica</button>';
+                html += '<button style="background:#667eea;color:white" onclick="editProperty(\'' + (p.uuid || p.id) + '\')">✏️ Modifica</button>';
                 html += '<button style="background:#ff3b30;color:white" onclick="deleteProperty(' + p.id + ')">🗑️ Elimina</button>';
                 html += '</div></div>';
             });
@@ -1766,50 +1771,9 @@
             renderEditor();
         }
 
-        function editProperty(id) {
-            editorState.editingId = id;
-            editorState.step = 1;
-            fetch('/api/properties/' + id, {
-                headers: { 'Authorization': 'Bearer ' + authToken }
-            })
-            .then(r => r.json())
-            .then(data => {
-                const p = data.property || data;
-                editorState.data = {
-                    contract: p.contract_type === 'sell' ? 'vendita' : 'affitto',
-                    type: p.property_type || 'Appartamento',
-                    price: p.price || '',
-                    condominium: p.condo_fees || '',
-                    address: p.address || '',
-                    city: p.city || '',
-                    province: p.province || '',
-                    lat: p.latitude || 41.9028,
-                    lng: p.longitude || 12.4964,
-                    surface: p.surface || '',
-                    rooms: p.rooms || '',
-                    bedrooms: p.bedrooms || '',
-                    bathrooms: p.bathrooms || '',
-                    floor: p.floor || '',
-                    total_floors: p.total_floors || '',
-                    elevator: !!p.elevator,
-                    condition: p.building_state || 'Nuovo',
-                    energy_class: p.energy_class || 'A4',
-                    heating: p.heating || 'Autonomo',
-                    air_conditioning: !!p.air_conditioning,
-                    exposure: p.exposure || '',
-                    balcony: p.balcony_sqm || '',
-                    garden: p.garden_sqm || '',
-                    parking: !!p.parking,
-                    basement: !!p.basement,
-                    furnished: p.furnished || 'no',
-                    year_built: p.year_built || '',
-                    photos: typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []),
-                    description: p.description || ''
-                };
-                navigateTo('editor');
-                renderEditor();
-            })
-            .catch(err => alert('Errore: ' + err.message));
+        function editProperty(uuid) {
+            // Navigate to the property page in edit mode
+            window.location.href = '/p/' + uuid + '?edit=1';
         }
 
         function deleteProperty(id) {

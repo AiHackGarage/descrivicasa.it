@@ -355,6 +355,84 @@
             .hero h1 { font-size: 1.4rem; }
             .hero .price { font-size: 1.5rem; }
         }
+
+        /* ── Edit mode ──────────────────────────────────── */
+        .edit-pen {
+            display: none;
+            background: none; border: 1px solid #d2d2d7;
+            border-radius: 8px; padding: 4px 8px;
+            font-size: 0.8rem; cursor: pointer; color: #86868b;
+            margin-left: 8px; transition: all 0.2s;
+            vertical-align: middle;
+        }
+        .edit-pen:hover { background: #667eea; color: white; border-color: #667eea; }
+        .edit-mode .edit-pen { display: inline-block; }
+        .edit-pen.visible { display: inline-block; }
+
+        .hero .edit-pen { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.3); }
+        .hero .edit-pen:hover { background: rgba(255,255,255,0.2); color: white; border-color: white; }
+
+        .editable {
+            border: 2px dashed transparent; border-radius: 8px;
+            padding: 4px 8px; margin: -4px -8px; transition: border 0.2s;
+            outline: none; min-width: 50px;
+        }
+        .editable:focus, .editable.active {
+            border-color: #667eea; background: rgba(102,126,234,0.05);
+        }
+        .hero .editable:focus, .hero .editable.active {
+            background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.5);
+        }
+
+        textarea.editable {
+            width: 100%; display: block; resize: vertical;
+            min-height: 120px; font-family: inherit; font-size: inherit;
+            line-height: inherit; color: inherit; background: inherit;
+            padding: 12px; border-radius: 8px;
+        }
+        textarea.editable:focus { border-color: #667eea; }
+
+        .edit-bar {
+            display: none; position: fixed; bottom: 0; left: 0; right: 0;
+            background: white; border-top: 2px solid #667eea;
+            padding: 12px 24px; z-index: 500;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            justify-content: center; gap: 12px;
+        }
+        .edit-bar.visible { display: flex; }
+        .btn-save {
+            padding: 12px 40px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; border-radius: 12px;
+            font-size: 1rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-save:hover { opacity: 0.9; }
+        .btn-cancel-edit {
+            padding: 12px 24px; background: #f5f5f7;
+            color: #1d1d1f; border: 1px solid #d2d2d7;
+            border-radius: 12px; font-size: 1rem; cursor: pointer;
+        }
+        .btn-cancel-edit:hover { background: #e8e8ed; }
+
+        .btn-sm {
+            display: inline-block; margin-top: 8px; padding: 8px 14px;
+            background: #667eea; color: white; border: none; border-radius: 8px;
+            font-size: 0.8rem; cursor: pointer; text-decoration: none;
+            text-align: center; width: 100%; box-sizing: border-box;
+            transition: opacity 0.2s;
+        }
+        .btn-sm:hover { opacity: 0.9; }
+        .btn-sm.danger { background: #ff3b30; }
+        .btn-sm.danger:hover { opacity: 0.85; }
+
+        .owner-actions { display: none; margin-top: 8px; }
+        .owner-actions.visible { display: block; }
+
+        .section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .section-header h2 { margin-bottom: 0 !important; }
     </style>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -445,9 +523,9 @@
     </div>
     <div id="property-content" style="display:none">
     <div class="hero" id="hero-section">
-            <h1 id="prop-title"></h1>
-            <p class="address" id="prop-address"></p>
-            <div class="price" id="prop-price"></div>
+            <h1 id="prop-title"></h1><button class="edit-pen" onclick="editField('title')" title="Modifica titolo">✏️</button>
+            <p class="address" id="prop-address"></p><button class="edit-pen" onclick="editField('address')" title="Modifica indirizzo">✏️</button>
+            <div class="price" id="prop-price"></div><button class="edit-pen" onclick="editField('price')" title="Modifica prezzo">✏️</button>
         </div>
 
         <div class="photo-gallery" id="photo-gallery">
@@ -458,12 +536,12 @@
         <div class="layout">
             <div class="main-col">
                 <div class="card" id="desc-card">
-                    <h2>📝 Descrizione</h2>
+                    <div class="section-header"><h2>📝 Descrizione</h2><button class="edit-pen" onclick="editField('description')" title="Modifica descrizione">✏️</button></div>
                     <div class="description-box" id="prop-description"></div>
                 </div>
 
                 <div class="card">
-                    <h2>🏷️ Caratteristiche</h2>
+                    <div class="section-header"><h2>🏷️ Caratteristiche</h2><button class="edit-pen" onclick="editField('features')" title="Modifica caratteristiche">✏️</button></div>
                     <div class="features-grid" id="features-grid"></div>
                 </div>
 
@@ -481,6 +559,11 @@
 
                     <a id="contact-btn" class="btn-contact" href="/">🏠 I miei immobili</a>
 
+                    <div class="owner-actions" id="owner-actions">
+                        <button class="btn-sm" onclick="enableEditMode()">✏️ Modifica</button>
+                        <button class="btn-sm danger" onclick="deleteThisProperty()">🗑️ Elimina</button>
+                    </div>
+
                     <div class="share-buttons">
                         <a class="share-btn fb" id="share-fb" href="#" target="_blank" title="Facebook">f</a>
                         <a class="share-btn tw" id="share-tw" href="#" target="_blank" title="X">𝕏</a>
@@ -495,6 +578,11 @@
                 </div>
             </div>  <!-- /side-col -->
         </div>  <!-- /layout -->
+
+        <div class="edit-bar" id="edit-bar">
+            <button class="btn-cancel-edit" onclick="cancelEditMode()">Annulla</button>
+            <button class="btn-save" onclick="saveProperty()">💾 Salva modifiche</button>
+        </div>
 
         <div class="footer">
             DescriviCasa.it &copy; 2026 &mdash; Annunci immobiliari professionali con AI
@@ -682,6 +770,7 @@
                 if (data.user) {
                     currentUser = data.user;
                     updateUI();
+                    checkOwnerAndEdit();
                 } else {
                     localStorage.removeItem('dc_token');
                 }
@@ -730,6 +819,7 @@ const uuid = window.location.pathname.split('/').pop();
             .then(data => {
                 if (data.error) throw new Error(data.error);
                 const p = data.property;
+                propertyData = p;
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('property-content').style.display = 'block';
 
@@ -834,6 +924,9 @@ const uuid = window.location.pathname.split('/').pop();
                 document.getElementById('share-fb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl) + '&quote=' + encodeURIComponent(shareText);
                 document.getElementById('share-tw').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText) + '&url=' + encodeURIComponent(pageUrl);
                 document.getElementById('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + pageUrl);
+
+                // Check ownership and edit mode
+                checkOwnerAndEdit();
             })
             .catch(err => {
                 document.getElementById('loading').style.display = 'none';
@@ -848,6 +941,200 @@ const uuid = window.location.pathname.split('/').pop();
                 msg.style.display = 'block';
                 setTimeout(() => msg.style.display = 'none', 2000);
             });
+        }
+
+        // ════════════════════════════════════════════════════════
+        // EDIT MODE
+        // ════════════════════════════════════════════════════════
+        let propertyData = null;
+        let isEditMode = false;
+        let hasChanges = false;
+
+        function isOwner() {
+            return authToken && currentUser && propertyData && currentUser.id === propertyData.user_id;
+        }
+
+        function checkOwnerAndEdit() {
+            if (!propertyData) return;
+            if (isOwner()) {
+                document.getElementById('owner-actions').classList.add('visible');
+                // Check for ?edit=1 in URL
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('edit') === '1') {
+                    enableEditMode();
+                }
+            }
+        }
+
+        function enableEditMode() {
+            if (!isOwner()) return;
+            isEditMode = true;
+            hasChanges = false;
+            document.body.classList.add('edit-mode');
+            document.getElementById('edit-bar').classList.add('visible');
+            // Scroll down a bit so save bar is visible
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        function cancelEditMode() {
+            if (hasChanges && !confirm('Hai modifiche non salvate. Annullare?')) return;
+            isEditMode = false;
+            hasChanges = false;
+            document.body.classList.remove('edit-mode');
+            document.getElementById('edit-bar').classList.remove('visible');
+            // Reload to reset all fields
+            location.reload();
+        }
+
+        function markChanged() {
+            hasChanges = true;
+        }
+
+        function editField(fieldName) {
+            if (!isEditMode && isOwner()) {
+                // If not in edit mode but owner clicks pen, enable edit mode first
+                enableEditMode();
+                setTimeout(() => editField(fieldName), 100);
+                return;
+            }
+            if (!isEditMode) return;
+
+            switch (fieldName) {
+                case 'title': {
+                    const el = document.getElementById('prop-title');
+                    el.contentEditable = 'true';
+                    el.classList.add('editable');
+                    el.focus();
+                    el.addEventListener('input', markChanged);
+                    break;
+                }
+                case 'address': {
+                    const el = document.getElementById('prop-address');
+                    el.contentEditable = 'true';
+                    el.classList.add('editable');
+                    el.focus();
+                    el.addEventListener('input', markChanged);
+                    break;
+                }
+                case 'price': {
+                    const el = document.getElementById('prop-price');
+                    el.contentEditable = 'true';
+                    el.classList.add('editable');
+                    el.focus();
+                    el.addEventListener('input', markChanged);
+                    break;
+                }
+                case 'description': {
+                    const box = document.getElementById('prop-description');
+                    const current = box.textContent || '';
+                    const textarea = document.createElement('textarea');
+                    textarea.className = 'editable active';
+                    textarea.value = current;
+                    textarea.addEventListener('input', markChanged);
+                    box.innerHTML = '';
+                    box.appendChild(textarea);
+                    textarea.focus();
+                    break;
+                }
+                case 'features': {
+                    // Make all feature values editable
+                    const items = document.querySelectorAll('#features-grid .feature-item .value');
+                    items.forEach(el => {
+                        el.contentEditable = 'true';
+                        el.classList.add('editable');
+                        el.addEventListener('input', markChanged);
+                    });
+                    // Focus first one
+                    if (items.length > 0) items[0].focus();
+                    break;
+                }
+            }
+        }
+
+        function saveProperty() {
+            if (!propertyData || !propertyData.id) return;
+
+            const btn = document.querySelector('#edit-bar .btn-save');
+            btn.textContent = '⏳ Salvataggio...';
+            btn.disabled = true;
+
+            // Collect edited data
+            const title = document.getElementById('prop-title').textContent.trim();
+            const addressFull = document.getElementById('prop-address').textContent.trim();
+            const priceText = document.getElementById('prop-price').textContent.trim();
+
+            // Parse price (remove € and /mese)
+            let price = null;
+            const priceMatch = priceText.match(/[\d.,]+/);
+            if (priceMatch) price = parseFloat(priceMatch[0].replace(/\./g, '').replace(',', '.'));
+
+            // Get description
+            let description = null;
+            const descEl = document.getElementById('prop-description');
+            const textarea = descEl.querySelector('textarea');
+            if (textarea) {
+                description = textarea.value.trim();
+            }
+
+            // Parse address into parts
+            const addrParts = addressFull.split(',').map(s => s.trim()).filter(Boolean);
+
+            const data = {};
+            if (title && title !== (propertyData.title || '')) data.title = title;
+            if (addressFull && addressFull !== propertyData.address) data.address = addrParts[0] || addressFull;
+            if (addrParts.length > 1) data.city = addrParts[addrParts.length - 2] || null;
+            if (addrParts.length > 2) data.province = addrParts[addrParts.length - 1] || null;
+            if (price !== null && price !== parseFloat(propertyData.price || 0)) data.price = price;
+            if (description !== null) data.description = description;
+
+            // Get features
+            const featureItems = document.querySelectorAll('#features-grid .feature-item');
+            featureItems.forEach(item => {
+                const label = item.querySelector('.label')?.textContent?.trim();
+                const value = item.querySelector('.value')?.textContent?.trim();
+                if (!label || !value) return;
+                switch (label) {
+                    case 'Superficie': data.surface = parseInt(value) || null; break;
+                    case 'Locali': data.rooms = parseInt(value) || null; break;
+                    case 'Camere': data.bedrooms = parseInt(value) || null; break;
+                    case 'Bagni': data.bathrooms = parseInt(value) || null; break;
+                    case 'Classe energetica': data.energy_class = value; break;
+                }
+            });
+
+            fetch('/api/properties/' + propertyData.id, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify({ data })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { alert(data.error); btn.textContent = '💾 Salva modifiche'; btn.disabled = false; return; }
+                location.reload();
+            })
+            .catch(err => {
+                alert('Errore: ' + err.message);
+                btn.textContent = '💾 Salva modifiche';
+                btn.disabled = false;
+            });
+        }
+
+        function deleteThisProperty() {
+            if (!propertyData || !propertyData.id) return;
+            if (!confirm('Sei sicuro di voler eliminare questo immobile? L\'operazione non può essere annullata.')) return;
+            fetch('/api/properties/' + propertyData.id, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { alert(data.error); return; }
+                window.location.href = '/';
+            })
+            .catch(err => alert('Errore: ' + err.message));
         }
     </script>
 </body>
