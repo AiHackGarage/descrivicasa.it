@@ -435,6 +435,20 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   }
 });
 
+// ── Helper: extract title from AI description ────────────────────
+// AI returns: 🏡 TITOLO ACCATTIVANTE\n\n📝 DESCRIZIONE...
+function extractTitle(description) {
+  if (!description) return null;
+  // Match text after 🏡 until the next emoji section header or double newline
+  const match = description.match(/🏡\s*(.+?)(?:\n\n📝|\n📝|$)/s);
+  if (match && match[1]) {
+    return match[1].trim().replace(/\n/g, ' ').substring(0, 200);
+  }
+  // Fallback: try to get the first meaningful line
+  const firstLine = description.split('\n')[0].replace(/^[🏡📝📍🏷️📞]\s*/, '').trim();
+  return firstLine || null;
+}
+
 // ── Helper: check generations limit ──────────────────────────────
 const PLAN_LIMITS = { free: 3, base: 50, pro: 9999 };
 
@@ -496,6 +510,7 @@ app.post('/analyze', authMiddleware, upload.array('files', 5), async (req, res) 
 
     res.json({
       description: result.description,
+      title: extractTitle(result.description),
       images: imageUrls,
       model: result.model || '',
       remaining: limitCheck.remaining - 1,
@@ -820,12 +835,16 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
       [req.user.id, result.description, JSON.stringify(photos), result.model || '', property.uuid]
     ).catch(() => {});
 
-    // Update property with description
-    await pool.query('UPDATE properties SET description = ?, ai_model = ?, photos = ?, status = ? WHERE id = ?',
-      [result.description, result.model || '', JSON.stringify(photos), 'published', req.params.id]);
+    // Extract title from AI-generated description
+    const title = extractTitle(result.description);
+
+    // Update property with description and title
+    await pool.query('UPDATE properties SET description = ?, title = ?, ai_model = ?, photos = ?, status = ? WHERE id = ?',
+      [result.description, title, result.model || '', JSON.stringify(photos), 'published', req.params.id]);
 
     res.json({
       description: result.description,
+      title,
       model: result.model || '',
       photos,
       remaining: limitCheck.remaining - 1,
