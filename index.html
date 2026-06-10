@@ -1398,7 +1398,7 @@
             authToken = null;
             currentUser = null;
             localStorage.removeItem('dc_token');
-            updateUI();
+            window.location.href = '/';
         }
 
         // ── Helpers ───────────────────────────────────────────
@@ -1665,7 +1665,11 @@
                 if (p.surface) html += '<span>📐 ' + p.surface + ' mq</span>';
                 if (p.rooms) html += '<span>🛏️ ' + p.rooms + '</span>';
                 if (p.bathrooms) html += '<span>🚿 ' + p.bathrooms + '</span>';
-                html += '</div></div></div>';
+                html += '</div></div>';
+                html += '<div class="property-card-actions" onclick="event.stopPropagation()">';
+                html += '<button style="background:#667eea;color:white" onclick="editProperty(' + p.id + ')">✏️ Modifica</button>';
+                html += '<button style="background:#ff3b30;color:white" onclick="deleteProperty(' + p.id + ')">🗑️ Elimina</button>';
+                html += '</div></div>';
             });
             html += '</div>';
             html += '<div class="dashboard-filter-count">Mostrati ' + arr.length + ' di ' + _dashboardProperties.length + ' immobili</div>';
@@ -1804,6 +1808,20 @@
                 };
                 navigateTo('editor');
                 renderEditor();
+            })
+            .catch(err => alert('Errore: ' + err.message));
+        }
+
+        function deleteProperty(id) {
+            if (!confirm('Sei sicuro di voler eliminare questo immobile? L\'operazione non può essere annullata.')) return;
+            fetch('/api/properties/' + id, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { alert(data.error); return; }
+                loadDashboard(); // reload the list
             })
             .catch(err => alert('Errore: ' + err.message));
         }

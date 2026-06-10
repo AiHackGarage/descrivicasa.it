@@ -479,7 +479,7 @@
                     <div class="agent-name" id="agent-name"></div>
                     <a id="agent-email" class="agent-email" href=""></a>
 
-                    <a id="contact-btn" class="btn-contact" href="">📞 Contatta l'agenzia</a>
+                    <a id="contact-btn" class="btn-contact" href="/">🏠 I miei immobili</a>
 
                     <div class="share-buttons">
                         <a class="share-btn fb" id="share-fb" href="#" target="_blank" title="Facebook">f</a>
@@ -653,7 +653,7 @@
             authToken = null;
             currentUser = null;
             localStorage.removeItem('dc_token');
-            updateUI();
+            window.location.href = '/';
         }
 
         function showError(msg, form) {
@@ -824,7 +824,6 @@ const uuid = window.location.pathname.split('/').pop();
                     document.getElementById('agent-avatar').src = p.agent_avatar || '';
                     document.getElementById('agent-email').textContent = p.agent_email || '';
                     document.getElementById('agent-email').href = 'mailto:' + (p.agent_email || '');
-                    document.getElementById('contact-btn').href = 'mailto:' + (p.agent_email || '') + '?subject=Richiesta informazioni: ' + encodeURIComponent(title);
                 } else {
                     document.querySelector('.agent-card .agent-name').textContent = 'Agenzia Immobiliare';
                 }

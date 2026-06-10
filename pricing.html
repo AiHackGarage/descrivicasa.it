@@ -613,7 +613,7 @@
             authToken = null;
             currentUser = null;
             localStorage.removeItem('dc_token');
-            updateUI();
+            window.location.href = '/';
         }
 
         function showError(msg, form) {
