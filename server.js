@@ -13,7 +13,11 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 // ── Config ────────────────────────────────────────────────────────
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+// UPLOAD_DIR: fuori dal path di deploy così sopravvive ai `git push` su Hostinger.
+// Default: ../persistent_uploads (sibling della cartella dell'app).
+// Su Hostinger impostare via hPanel: UPLOAD_DIR = /home/u116036854/descrivicasa_uploads
+const UPLOAD_DIR = process.env.UPLOAD_DIR 
+  || path.join(__dirname, '..', 'persistent_uploads');
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
