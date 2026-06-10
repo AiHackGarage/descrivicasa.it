@@ -449,6 +449,17 @@ function extractTitle(description) {
   return firstLine || null;
 }
 
+// ── Helper: generate URL-friendly slug ─────────────────────────────
+function slugify(text) {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 80);
+}
+
 // ── Helper: check generations limit ──────────────────────────────
 const PLAN_LIMITS = { free: 3, base: 50, pro: 9999 };
 
@@ -882,8 +893,11 @@ app.get('/api/p/:uuid', async (req, res) => {
   }
 });
 
-// Serve public property pages
+// Serve public property pages (with optional SEO-friendly slug)
 app.get('/p/:uuid', (req, res) => {
+  res.sendFile(path.join(__dirname, 'property.html'));
+});
+app.get('/p/:uuid/:slug', (req, res) => {
   res.sendFile(path.join(__dirname, 'property.html'));
 });
 app.get('/api/health', (req, res) => {

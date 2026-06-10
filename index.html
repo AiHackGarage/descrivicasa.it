@@ -1305,6 +1305,22 @@
         let currentUser = null;
         let currentView = 'landing';
 
+        // ── URL helpers ─────────────────────────────────────────
+        function slugify(text) {
+            if (!text) return '';
+            return text
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .substring(0, 80);
+        }
+
+        function propertyUrl(uuid, title) {
+            const slug = slugify(title || '');
+            return '/p/' + uuid + (slug ? '/' + slug : '');
+        }
+
         function updateUI() {
             const authDiv = document.getElementById('topbar-auth');
             const userDiv = document.getElementById('topbar-user');
@@ -1702,7 +1718,7 @@
                 const pht = typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || []);
                 const imgSrc = pht.length > 0 ? pht[0] : '';
                 const address = p.address || p.city || 'Indirizzo non specificato';
-                html += '<div class="property-card" onclick="window.location.href=\'/p/' + (p.uuid || p.id) + '\'">';
+                html += '<div class="property-card" onclick="window.location.href=\'' + propertyUrl(p.uuid || p.id, p.title) + '\'">';
                 html += imgSrc ? '<img class="property-card-img" src="' + imgSrc + '" alt="">' : '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;color:#86868b;font-size:2rem">🏠</div>';
                 html += '<div class="property-card-body">';
                 html += '<div class="property-card-price">' + price + '</div>';
@@ -1977,7 +1993,7 @@
 
             // Save bar
             html += '<div class="edit-save-bar">';
-            html += '<button class="btn-secondary" onclick="window.location.href=\'/p/' + editState.uuid + '\'">Annulla</button>';
+            html += '<button class="btn-secondary" onclick="window.location.href=\'' + propertyUrl(editState.uuid, d.title || d.description) + '\'">Annulla</button>';
             html += '<button class="btn-primary" onclick="saveEditPage()">💾 Salva modifiche</button>';
             html += '</div>';
 
@@ -2105,7 +2121,7 @@
                 const data = await res.json();
                 if (data.error) { alert(data.error); btn.textContent = '💾 Salva modifiche'; btn.disabled = false; return; }
 
-                window.location.href = '/p/' + editState.uuid;
+                window.location.href = propertyUrl(editState.uuid, d.title || d.description);
             } catch (err) {
                 alert('Errore: ' + err.message);
                 btn.textContent = '💾 Salva modifiche';
@@ -2549,7 +2565,7 @@
                 const props = listData.properties || [];
                 const prop = props.find(p => p.uuid === uuid);
                 if (!prop) {
-                    window.location.href = '/p/' + uuid;
+                    window.location.href = propertyUrl(uuid);
                     return;
                 }
 
@@ -2566,7 +2582,7 @@
                     updateUI();
                 }
 
-                window.location.href = '/p/' + uuid;
+                window.location.href = propertyUrl(uuid, genData.title);
 
             } catch (err) {
                 if (overlay) overlay.classList.remove('show');
