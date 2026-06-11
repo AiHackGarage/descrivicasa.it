@@ -749,7 +749,7 @@ app.post('/api/properties', authMiddleware, upload.array('files', 10), async (re
         building_state, year_built, energy_class, energy_index, heating, air_conditioning,
         exposure, balcony_sqm, garden_sqm, parking, basement, furnished,
         price, condo_fees, agent_name, agent_phone, agent_email, photos, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       uuid, req.user.id, data.contract_type || 'sell', data.property_type || 'apartment',
       data.address || null, data.civic || null, data.cap || null, data.city || null,
