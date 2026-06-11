@@ -25,9 +25,9 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 // ── Database ──────────────────────────────────────────────────────
 const DB_CONFIG = {
   host: process.env.DB_HOST || '127.0.0.1',
-  user: process.env.DB_USER || 'u116036854_hermes',
-  password: process.env.DB_PASS || "/6|3J>>*bAAb",
-  database: process.env.DB_NAME || 'u116036854_descrivicasadb',
+  user: process.env.DB_USER || 'descrivicasa',
+  password: process.env.DB_PASS || '',
+  database: process.env.DB_NAME || 'descrivicasa',
   waitForConnections: true,
   connectionLimit: 10,
 };
@@ -35,7 +35,11 @@ const DB_CONFIG = {
 const pool = mysql.createPool(DB_CONFIG);
 
 // ── JWT ────────────────────────────────────────────────────────────
-const JWT_SECRET = process.env.JWT_SECRET || uuidv4() + uuidv4();
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ JWT_SECRET non impostato nelle variabili d\'ambiente. Il server non può avviarsi.');
+  process.exit(1);
+}
 const JWT_EXPIRES = '30d';
 
 // ── Google OAuth ──────────────────────────────────────────────────
@@ -899,8 +903,8 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
       });
     }
 
-    // Convert photo URLs to local file paths
-    const filePaths = photos.map(url => path.join(__dirname, 'uploads', path.basename(url))).filter(fs.existsSync);
+    // Convert photo URLs to local file paths (use UPLOAD_DIR, not __dirname/uploads)
+    const filePaths = photos.map(url => path.join(UPLOAD_DIR, path.basename(url))).filter(fs.existsSync);
 
     // Load contact info from property, fall back to user profile
     const propertyWithContacts = {

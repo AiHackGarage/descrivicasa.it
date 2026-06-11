@@ -542,6 +542,16 @@
                 .substring(0, 80);
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function updateUI() {
             const authDiv = document.getElementById('topbar-auth');
             const userDiv = document.getElementById('topbar-user');
@@ -826,7 +836,10 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
                 if (p.basement) features.push(['Cantina', 'Sì']);
                 if (p.furnished && p.furnished !== 'no') features.push(['Arredato', translateFurnished(p.furnished)]);
                 if (p.year_built) features.push(['Anno costruzione', p.year_built]);
-                if (p.condo_fees) features.push(['Spese condominiali', '€ ' + Number(p.condo_fees).toLocaleString('it-IT') + '/mese']);
+                if (p.condo_fees) {
+                    const feesLabel = ['apartment','villa','schiera','attico','monolocale'].includes(p.property_type) ? 'Spese condominiali' : 'Spese extra';
+                    features.push([feesLabel, '€ ' + Number(p.condo_fees).toLocaleString('it-IT') + '/mese']);
+                }
 
                 const grid = document.getElementById('features-grid');
                 if (features.length === 0) {
