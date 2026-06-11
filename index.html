@@ -1784,7 +1784,9 @@
                 furnished: 'No',
                 year_built: '',
                 photos: [],
-                description: ''
+                description: '',
+                phone: '',
+                email: ''
             }
         };
         let editorMap = null;
@@ -1822,7 +1824,9 @@
                 furnished: 'No',
                 year_built: '',
                 photos: [],
-                description: ''
+                description: '',
+                phone: '',
+                email: ''
             };
             navigateTo('editor');
             renderEditor();
@@ -1884,6 +1888,8 @@
                     year_built: p.year_built || '',
                     description: p.description || '',
                     title: p.title || '',
+                    phone: p.agent_phone || '',
+                    email: p.agent_email || '',
                     photos: typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || [])
                 };
                 renderEditPage();
@@ -1983,7 +1989,15 @@
             html += '<div class="form-group"><label>Descrizione</label><textarea style="width:100%;min-height:200px;padding:12px;border:1px solid #d2d2d7;border-radius:10px;font-family:inherit;font-size:0.95rem;line-height:1.7;resize:vertical" onchange="editState.data.description=this.value" placeholder="Scrivi o modifica la descrizione dell\'immobile...">' + escapeHtml(d.description || '') + '</textarea></div>';
             html += '</div>';
 
-            // Section 6: Foto
+            // Section 6: Contatti
+            html += '<div class="edit-section">';
+            html += '<h3>📞 Contatti</h3>';
+            html += '<p class="sub">Recapiti che appariranno nella pagina pubblica dell\'annuncio</p>';
+            html += '<div class="form-row"><div class="form-group"><label>Telefono</label><input type="text" value="' + escapeHtml(d.phone || '') + '" onchange="editState.data.phone=this.value" placeholder="es. +39 123 456 7890"></div>';
+            html += '<div class="form-group"><label>Email</label><input type="email" value="' + escapeHtml(d.email || '') + '" onchange="editState.data.email=this.value" placeholder="es. info@agenzia.it"></div></div>';
+            html += '</div>';
+
+            // Section 7: Foto
             html += '<div class="edit-section">';
             html += '<h3>📸 Foto</h3>';
             html += '<div class="photo-dropzone" onclick="document.getElementById(\'edit-photo-input\').click()"><div class="dz-icon">📷</div><p>Clicca per aggiungere foto</p></div>';
@@ -2104,6 +2118,8 @@
                     condo_fees: d.condominium || null,
                     title: d.title || null,
                     description: d.description || null,
+                    agent_phone: d.phone || null,
+                    agent_email: d.email || null,
                 }));
 
                 // Append new photos
@@ -2427,8 +2443,13 @@
                 ).join('') + '</div>'
                 : '';
             return `
-                <h2>📸 Carica le foto e crea pagina</h2>
-                <p class="sub">Ultimo passo! Carica le foto e pubblica l'immobile</p>
+                <h2>📸 Carica le foto e pubblica</h2>
+                <p class="sub">Ultimo passo! Carica le foto, inserisci i tuoi recapiti e pubblica</p>
+                <div class="form-row">
+                    <div class="form-group"><label>📞 Telefono</label><input type="text" value="${escapeHtml(d.phone || '')}" onchange="editorState.data.phone=this.value" placeholder="es. +39 123 456 7890"></div>
+                    <div class="form-group"><label>📧 Email</label><input type="email" value="${escapeHtml(d.email || '')}" onchange="editorState.data.email=this.value" placeholder="es. info@agenzia.it"></div>
+                </div>
+                <p class="sub" style="margin-top:8px">Questi recapiti appariranno nella pagina pubblica dell'annuncio</p>
                 <div class="photo-dropzone" id="photo-dropzone" onclick="document.getElementById('photo-input').click()">
                     <div class="dz-icon">📷</div>
                     <p>Trascina qui le foto o clicca per selezionarle</p>
@@ -2539,6 +2560,8 @@
                     year_built: d.year_built || null,
                     price: d.price || null,
                     condo_fees: d.condominium || null,
+                    agent_phone: d.phone || null,
+                    agent_email: d.email || null,
                 }));
 
                 d.photos.forEach(ph => {

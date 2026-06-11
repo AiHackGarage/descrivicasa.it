@@ -161,6 +161,10 @@ async function initDatabase() {
         price DECIMAL(12,2) DEFAULT NULL,
         condo_fees DECIMAL(8,2) DEFAULT NULL,
 
+        agent_name VARCHAR(200) DEFAULT NULL,
+        agent_phone VARCHAR(50) DEFAULT NULL,
+        agent_email VARCHAR(255) DEFAULT NULL,
+
         title VARCHAR(200) DEFAULT NULL,
         description TEXT DEFAULT NULL,
         ai_model VARCHAR(100) DEFAULT NULL,
@@ -180,6 +184,21 @@ async function initDatabase() {
     `);
     conn.release();
     console.log('✅ Database tables ready');
+
+    // Run migrations: add agent columns if missing
+    try {
+      const migrationConn = await pool.getConnection();
+      const [cols] = await migrationConn.query("SHOW COLUMNS FROM properties LIKE 'agent_%'");
+      if (cols.length === 0) {
+        await migrationConn.query("ALTER TABLE properties ADD COLUMN agent_name VARCHAR(200) DEFAULT NULL AFTER condo_fees");
+        await migrationConn.query("ALTER TABLE properties ADD COLUMN agent_phone VARCHAR(50) DEFAULT NULL AFTER agent_name");
+        await migrationConn.query("ALTER TABLE properties ADD COLUMN agent_email VARCHAR(255) DEFAULT NULL AFTER agent_phone");
+        console.log('✅ Migration: agent columns added');
+      }
+      migrationConn.release();
+    } catch (migErr) {
+      console.error('⚠️  Migration warning:', migErr.message);
+    }
   } catch (err) {
     console.error('❌ Database init error:', err.message);
     console.log('⚠️  Server will continue without database');
@@ -188,7 +207,7 @@ async function initDatabase() {
 
 // ── AI Vision Call ────────────────────────────────────────────────
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const VISION_MODEL = process.env.VISION_MODEL || 'google/gemini-2.5-flash-image';
+const VISION_MODEL = process.env.VISION_MODEL || 'google/gemini-2.5-flash';
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 
 const SYSTEM_PROMPT = `Sei un copywriter immobiliare professionista, specializzato in annunci per Idealista, Immobiliare.it e Casa.it.
@@ -218,8 +237,8 @@ REGOLE FERREE:
 - Riscaldamento: (autonomo/centralizzato, se intuibile)
 - Classe energetica: (non inventare, ometti se non visibile)
 
-📞 CONTATTI (sempre questa frase esatta):
-Per maggiori informazioni o per fissare una visita, contatta l'agenzia.
+📞 CONTATTI
+Scrivi qui i contatti forniti nei dati dell'immobile (nome, telefono, email). Se non sono stati forniti, scrivi: Per maggiori informazioni o per fissare una visita, contatta l'agenzia.
 
 REGOLE DI STILE:
 - Tono caldo, professionale, mai troppo tecnico
@@ -512,16 +531,23 @@ app.post('/analyze', authMiddleware, upload.array('files', 5), async (req, res) 
       [req.user.id]
     );
 
+    // Inject contacts from user profile into the AI description
+    const finalDescription = injectContacts(result.description, {
+      agent_name: req.user.name,
+      agent_email: req.user.email,
+      agent_phone: null,
+    });
+
     // Save to history
     const imageUrls = req.files.map((f) => `/media/uploads/${path.basename(f.path)}`);
     await pool.query(
       'INSERT INTO generations (user_id, description, image_urls, model) VALUES (?, ?, ?, ?)',
-      [req.user.id, result.description, JSON.stringify(imageUrls), result.model || '']
+      [req.user.id, finalDescription, JSON.stringify(imageUrls), result.model || '']
     ).catch(err => console.error('Save history error:', err.message));
 
     res.json({
-      description: result.description,
-      title: extractTitle(result.description),
+      description: finalDescription,
+      title: extractTitle(finalDescription),
       images: imageUrls,
       model: result.model || '',
       remaining: limitCheck.remaining - 1,
@@ -615,6 +641,7 @@ ${property.air_conditioning ? '- Condizionamento: sì' : ''}
 ${property.furnished && property.furnished !== 'no' ? `- Arredato: ${property.furnished}` : ''}
 ${property.year_built ? `- Anno di costruzione: ${property.year_built}` : ''}
 ${property.price ? `- Prezzo: € ${Number(property.price).toLocaleString('it-IT')}${contract === 'affitto' ? '/mese' : ''}` : ''}
+${property.agent_name ? `\nCONTATTI DA INSERIRE NELLA SEZIONE 📞:\n- Nome: ${property.agent_name}` : ''}${property.agent_phone ? `\n- Telefono: ${property.agent_phone}` : ''}${property.agent_email ? `\n- Email: ${property.agent_email}` : ''}
 
 Intreccia questi dati nella descrizione in modo naturale, non fare un semplice elenco. La descrizione deve sembrare scritta da un'agenzia immobiliare professionista.`;
 }
@@ -671,6 +698,36 @@ async function describePropertyWithData(imagePaths, propertyData) {
   }
 }
 
+// ── Helper: inject contact info into description, replacing AI-generated contacts ──
+// Strips the 📞 CONTATTI section from the AI output and replaces it with real contacts.
+function injectContacts(description, property) {
+  if (!description) return description;
+  
+  // Build the contacts section with real data
+  const agentName = property.agent_name || null;
+  const agentPhone = property.agent_phone || null;
+  const agentEmail = property.agent_email || null;
+  
+  let contactsText = '📞 CONTATTI\n';
+  if (agentName || agentPhone || agentEmail) {
+    if (agentName) contactsText += `- ${agentName}\n`;
+    if (agentPhone) contactsText += `- Tel: ${agentPhone}\n`;
+    if (agentEmail) contactsText += `- Email: ${agentEmail}\n`;
+  } else {
+    contactsText += "Per maggiori informazioni o per fissare una visita, contatta l'agenzia.\n";
+  }
+  
+  // Strip the AI-generated 📞 CONTATTI section (from 📞 to end of text, or to next section if present)
+  // The AI output looks like: ...\n📞 CONTATTI\nsome text...\n (possibly followed by nothing)
+  const contactsRegex = /\n?📞\s*CONTATTI[\s\S]*$/;
+  let cleaned = description.replace(contactsRegex, '').trimEnd();
+  
+  // Append the real contacts section
+  cleaned += '\n\n' + contactsText;
+  
+  return cleaned;
+}
+
 // ── Properties CRUD ───────────────────────────────────────────────
 
 // Create property
@@ -687,8 +744,8 @@ app.post('/api/properties', authMiddleware, upload.array('files', 10), async (re
         surface, rooms, bedrooms, bathrooms, floor, total_floors, elevator,
         building_state, year_built, energy_class, energy_index, heating, air_conditioning,
         exposure, balcony_sqm, garden_sqm, parking, basement, furnished,
-        price, condo_fees, photos, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        price, condo_fees, agent_name, agent_phone, agent_email, photos, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       uuid, req.user.id, data.contract_type || 'sell', data.property_type || 'apartment',
       data.address || null, data.civic || null, data.cap || null, data.city || null,
@@ -700,6 +757,7 @@ app.post('/api/properties', authMiddleware, upload.array('files', 10), async (re
       data.exposure || null, data.balcony_sqm || null, data.garden_sqm || null,
       data.parking ? 1 : 0, data.basement ? 1 : 0, data.furnished || 'no',
       data.price || null, data.condo_fees || null,
+      data.agent_name || null, data.agent_phone || null, data.agent_email || null,
       photoUrls.length > 0 ? JSON.stringify(photoUrls) : null,
       data.status || 'draft',
     ]);
@@ -767,7 +825,8 @@ app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async 
         bedrooms=?, bathrooms=?, floor=?, total_floors=?, elevator=?,
         building_state=?, year_built=?, energy_class=?, energy_index=?,
         heating=?, air_conditioning=?, exposure=?, balcony_sqm=?, garden_sqm=?,
-        parking=?, basement=?, furnished=?, price=?, condo_fees=?, photos=?,
+        parking=?, basement=?, furnished=?, price=?, condo_fees=?,
+        agent_name=?, agent_phone=?, agent_email=?, photos=?,
         status=?, title=?, description=?
       WHERE id=? AND user_id=?
     `, [
@@ -781,6 +840,7 @@ app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async 
       data.exposure || null, data.balcony_sqm || null, data.garden_sqm || null,
       data.parking ? 1 : 0, data.basement ? 1 : 0, data.furnished || 'no',
       data.price || null, data.condo_fees || null,
+      data.agent_name || null, data.agent_phone || null, data.agent_email || null,
       existingPhotos.length > 0 ? JSON.stringify(existingPhotos) : null,
       data.status || 'draft', data.title || null, data.description || null,
       req.params.id, req.user.id,
@@ -834,8 +894,19 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     // Convert photo URLs to local file paths
     const filePaths = photos.map(url => path.join(__dirname, 'uploads', path.basename(url))).filter(fs.existsSync);
 
-    const result = await describePropertyWithData(filePaths, property);
+    // Load contact info from property, fall back to user profile
+    const propertyWithContacts = {
+      ...property,
+      agent_name: property.agent_name || req.user.name,
+      agent_phone: property.agent_phone || null,
+      agent_email: property.agent_email || req.user.email,
+    };
+
+    const result = await describePropertyWithData(filePaths, propertyWithContacts);
     if (result.error) return res.status(500).json(result);
+
+    // Inject real contact info into the AI description (replace AI-generated contacts)
+    const finalDescription = injectContacts(result.description, propertyWithContacts);
 
     // Increment counter
     await pool.query('UPDATE users SET monthly_generations = monthly_generations + 1 WHERE id = ?', [req.user.id]);
@@ -843,18 +914,18 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     // Save to history
     await pool.query(
       'INSERT INTO generations (user_id, description, image_urls, model, property_uuid) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, result.description, JSON.stringify(photos), result.model || '', property.uuid]
+      [req.user.id, finalDescription, JSON.stringify(photos), result.model || '', property.uuid]
     ).catch(() => {});
 
     // Extract title from AI-generated description
-    const title = extractTitle(result.description);
+    const title = extractTitle(finalDescription);
 
     // Update property with description and title
     await pool.query('UPDATE properties SET description = ?, title = ?, ai_model = ?, photos = ?, status = ? WHERE id = ?',
-      [result.description, title, result.model || '', JSON.stringify(photos), 'published', req.params.id]);
+      [finalDescription, title, result.model || '', JSON.stringify(photos), 'published', req.params.id]);
 
     res.json({
-      description: result.description,
+      description: finalDescription,
       title,
       model: result.model || '',
       photos,
@@ -872,7 +943,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
 app.get('/api/p/:uuid', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT p.*, u.name AS agent_name, u.email AS agent_email, u.avatar AS agent_avatar
+      `SELECT p.*, u.name AS user_name, u.email AS user_email, u.avatar AS agent_avatar
        FROM properties p JOIN users u ON p.user_id = u.id
        WHERE p.uuid = ? AND p.is_public = TRUE AND p.status IN ('published','draft')`,
       [req.params.uuid]
@@ -880,6 +951,10 @@ app.get('/api/p/:uuid', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
 
     const p = rows[0];
+    // Prefer property-level contact info over user profile
+    p.agent_name = p.agent_name || p.user_name;
+    p.agent_email = p.agent_email || p.user_email;
+    p.agent_phone = p.agent_phone || null;
     p.photos = p.photos ? JSON.parse(p.photos) : [];
     p.elevator = !!p.elevator;
     p.air_conditioning = !!p.air_conditioning;
