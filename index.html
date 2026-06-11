@@ -2443,13 +2443,8 @@
                 ).join('') + '</div>'
                 : '';
             return `
-                <h2>📸 Carica le foto e pubblica</h2>
-                <p class="sub">Ultimo passo! Carica le foto, inserisci i tuoi recapiti e pubblica</p>
-                <div class="form-row">
-                    <div class="form-group"><label>📞 Telefono</label><input type="text" value="${escapeHtml(d.phone || '')}" onchange="editorState.data.phone=this.value" placeholder="es. +39 123 456 7890"></div>
-                    <div class="form-group"><label>📧 Email</label><input type="email" value="${escapeHtml(d.email || '')}" onchange="editorState.data.email=this.value" placeholder="es. info@agenzia.it"></div>
-                </div>
-                <p class="sub" style="margin-top:8px">Questi recapiti appariranno nella pagina pubblica dell'annuncio</p>
+                <h2>📸 Carica le foto e crea pagina</h2>
+                <p class="sub">Ultimo passo! Carica le foto e pubblica l'immobile</p>
                 <div class="photo-dropzone" id="photo-dropzone" onclick="document.getElementById('photo-input').click()">
                     <div class="dz-icon">📷</div>
                     <p>Trascina qui le foto o clicca per selezionarle</p>
