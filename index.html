@@ -1926,7 +1926,7 @@
             html += '<button class="toggle-btn ' + (d.contract === 'vendita' ? 'active' : '') + '" onclick="editState.data.contract=\'vendita\';renderEditPage()">Vendita</button>';
             html += '<button class="toggle-btn ' + (d.contract === 'affitto' ? 'active' : '') + '" onclick="editState.data.contract=\'affitto\';renderEditPage()">Affitto</button>';
             html += '</div></div>';
-            html += '<div class="form-group"><label>Tipo immobile</label><select onchange="editState.data.type=this.value">';
+            html += '<div class="form-group"><label>Tipo immobile</label><select onchange="editState.data.type=this.value;renderEditPage()">';
             typeOptions.forEach(t => html += '<option value="' + t + '"' + (d.type === t ? ' selected' : '') + '>' + t + '</option>');
             html += '</select></div>';
             html += '<div class="form-group"><label>Prezzo (€)</label><input type="number" value="' + d.price + '" onchange="editState.data.price=this.value" placeholder="es. 250000"></div>';
@@ -2297,7 +2297,7 @@
                 </div>
                 <div class="form-group">
                     <label>Tipo immobile</label>
-                    <select onchange="editorState.data.type=this.value">
+                    <select onchange="editorState.data.type=this.value;renderEditor()">
                         ${['Appartamento','Villa','Schiera','Attico','Monolocale','Ufficio','Negozio','Terreno','Magazzino','Box','Fabbricato'].map(t =>
                             '<option value="' + t + '"' + (d.type === t ? ' selected' : '') + '>' + t + '</option>'
                         ).join('')}
