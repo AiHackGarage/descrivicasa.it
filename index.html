@@ -1932,7 +1932,7 @@
             html += '<div class="form-group"><label>Prezzo (€)</label><input type="number" value="' + d.price + '" onchange="editState.data.price=this.value" placeholder="es. 250000"></div>';
             if (d.contract === 'vendita') {
                 const residentialTypes = ['Appartamento','appartamento','apartment','Villa','villa','Schiera','schiera','Attico','attico','Monolocale','monolocale'];
-                const feesLabel = residentialTypes.includes(d.type) ? 'Spese condominiali (€)' : 'Spese extra (€)';
+                const feesLabel = residentialTypes.includes(d.type) ? 'Spese condominiali mensili (€)' : 'Spese extra mensili (€)';
                 html += '<div class="form-group"><label>' + feesLabel + '</label><input type="number" value="' + d.condominium + '" onchange="editState.data.condominium=this.value" placeholder="es. 150"></div>';
             }
             html += '</div>';
@@ -2309,7 +2309,7 @@
                 </div>
                 ${d.contract === 'vendita' ? `
                 <div class="form-group">
-                    <label>${['Appartamento','Villa','Schiera','Attico','Monolocale'].includes(d.type) ? 'Spese condominiali (€)' : 'Spese extra (€)'}</label>
+                    <label>${['Appartamento','Villa','Schiera','Attico','Monolocale'].includes(d.type) ? 'Spese condominiali mensili (€)' : 'Spese extra mensili (€)'}</label>
                     <input type="number" value="${d.condominium}" onchange="editorState.data.condominium=this.value" placeholder="es. 150" min="0">
                 </div>` : ''}
             `;
@@ -2720,7 +2720,7 @@
                                 ${p.exposure ? '<div class="detail-feat"><strong>' + p.exposure + '</strong><span>Esposizione</span></div>' : ''}
                                 ${p.furnished && p.furnished !== 'No' ? '<div class="detail-feat"><strong>' + p.furnished + '</strong><span>Arredato</span></div>' : ''}
                                 ${p.year_built ? '<div class="detail-feat"><strong>' + p.year_built + '</strong><span>Anno costruzione</span></div>' : ''}
-                                ${p.condominium && p.contract === 'vendita' ? '<div class="detail-feat"><strong>€ ' + p.condominium + '</strong><span>' + (['apartment','villa','schiera','attico','monolocale'].includes(p.property_type) ? 'Spese condominiali' : 'Spese extra') + '</span></div>' : ''}
+                                ${p.condominium && p.contract === 'vendita' ? '<div class="detail-feat"><strong>€ ' + p.condominium + '</strong><span>' + (['apartment','villa','schiera','attico','monolocale'].includes(p.property_type) ? 'Spese condominiali mensili' : 'Spese extra mensili') + '</span></div>' : ''}
                             </div>
                             ${p.description ? '<div class="detail-description">' + escapeHtml(p.description) + '</div>' : ''}
                             <div class="detail-share">
