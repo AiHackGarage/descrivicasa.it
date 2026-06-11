@@ -732,8 +732,7 @@ function injectContacts(description, property) {
   const agentEmail = property.agent_email || null;
   
   let contactsText = '📞 CONTATTI\n';
-  if (agentName || agentPhone || agentEmail) {
-    if (agentName) contactsText += `- ${agentName}\n`;
+  if (agentPhone || agentEmail) {
     if (agentPhone) contactsText += `- Tel: ${agentPhone}\n`;
     if (agentEmail) contactsText += `- Email: ${agentEmail}\n`;
   } else {
@@ -992,6 +991,11 @@ app.get('/api/p/:uuid', async (req, res) => {
     p.parking = !!p.parking;
     p.basement = !!p.basement;
     p.is_public = true;
+
+    // Re-inject contacts into description so edits (phone/email) are reflected
+    if (p.description) {
+      p.description = injectContacts(p.description, p);
+    }
 
     res.json({ property: p });
   } catch (err) {
