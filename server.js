@@ -810,6 +810,14 @@ app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async 
     const existing = await pool.query('SELECT photos FROM properties WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (existing[0].length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
 
+    // Validate contact fields if provided
+    if (data.agent_phone && !/^(\+?\d{1,3}[-\s]?)?\d{6,15}$/.test(data.agent_phone)) {
+      return res.status(400).json({ error: 'Numero di telefono non valido' });
+    }
+    if (data.agent_email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.agent_email)) {
+      return res.status(400).json({ error: 'Email non valida' });
+    }
+
     let existingPhotos = [];
     try { existingPhotos = existing[0][0].photos ? JSON.parse(existing[0][0].photos) : []; } catch (_) {}
 

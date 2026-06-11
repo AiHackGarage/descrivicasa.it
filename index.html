@@ -1993,8 +1993,8 @@
             html += '<div class="edit-section">';
             html += '<h3>📞 Contatti</h3>';
             html += '<p class="sub">Recapiti che appariranno nella pagina pubblica dell\'annuncio</p>';
-            html += '<div class="form-row"><div class="form-group"><label>Telefono</label><input type="text" value="' + escapeHtml(d.phone || '') + '" onchange="editState.data.phone=this.value" placeholder="es. +39 123 456 7890"></div>';
-            html += '<div class="form-group"><label>Email</label><input type="email" value="' + escapeHtml(d.email || '') + '" onchange="editState.data.email=this.value" placeholder="es. info@agenzia.it"></div></div>';
+            html += '<div class="form-row"><div class="form-group"><label>Telefono</label><input type="text" id="edit-phone" value="' + escapeHtml(d.phone || '') + '" onchange="editState.data.phone=this.value;validateContactField()" onblur="validateContactField()" placeholder="es. +39 123 456 7890"><span class="field-error" id="err-phone" style="display:none;color:#e74c3c;font-size:0.8rem"></span></div>';
+            html += '<div class="form-group"><label>Email</label><input type="email" id="edit-email-contact" value="' + escapeHtml(d.email || '') + '" onchange="editState.data.email=this.value;validateContactField()" onblur="validateContactField()" placeholder="es. info@agenzia.it"><span class="field-error" id="err-email" style="display:none;color:#e74c3c;font-size:0.8rem"></span></div></div>';
             html += '</div>';
 
             // Section 7: Foto
@@ -2083,6 +2083,13 @@
         async function saveEditPage() {
             const d = editState.data;
             const btn = document.querySelector('#view-edit .btn-primary');
+
+            // Validate contacts before saving
+            if (!validateContactField()) {
+                alert('Correggi i campi contatti (telefono o email non validi) prima di salvare.');
+                return;
+            }
+
             btn.textContent = '⏳ Salvataggio...';
             btn.disabled = true;
 
@@ -2143,6 +2150,50 @@
                 btn.textContent = '💾 Salva modifiche';
                 btn.disabled = false;
             }
+        }
+
+        function validateContactField() {
+            const phoneEl = document.getElementById('edit-phone');
+            const emailEl = document.getElementById('edit-email-contact');
+            let valid = true;
+
+            // Validate phone: Italian or international format
+            if (phoneEl && phoneEl.value.trim()) {
+                const phoneVal = phoneEl.value.trim();
+                const errEl = document.getElementById('err-phone');
+                // International: +39..., Italian mobile: 3xx..., landline: 0x...
+                const phoneRegex = /^(\+?\d{1,3}[-\s]?)?\d{6,15}$/;
+                if (!phoneRegex.test(phoneVal)) {
+                    if (errEl) { errEl.textContent = 'Numero non valido (es. +39 123 456 7890)'; errEl.style.display = 'block'; }
+                    phoneEl.style.borderColor = '#e74c3c';
+                    valid = false;
+                } else {
+                    if (errEl) errEl.style.display = 'none';
+                    phoneEl.style.borderColor = '';
+                }
+            } else {
+                // Phone is optional, clear error
+                if (phoneEl) { phoneEl.style.borderColor = ''; const errEl = document.getElementById('err-phone'); if (errEl) errEl.style.display = 'none'; }
+            }
+
+            // Validate email
+            if (emailEl && emailEl.value.trim()) {
+                const emailVal = emailEl.value.trim();
+                const errEl = document.getElementById('err-email');
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+                if (!emailRegex.test(emailVal)) {
+                    if (errEl) { errEl.textContent = 'Email non valida (es. nome@dominio.it)'; errEl.style.display = 'block'; }
+                    emailEl.style.borderColor = '#e74c3c';
+                    valid = false;
+                } else {
+                    if (errEl) errEl.style.display = 'none';
+                    emailEl.style.borderColor = '';
+                }
+            } else {
+                if (emailEl) { emailEl.style.borderColor = ''; const errEl = document.getElementById('err-email'); if (errEl) errEl.style.display = 'none'; }
+            }
+
+            return valid;
         }
 
         function deleteProperty(id) {
