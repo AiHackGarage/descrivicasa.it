@@ -460,16 +460,35 @@ app.get('/api/me', authMiddleware, async (req, res) => {
 
 // ── Helper: extract title from AI description ────────────────────
 // AI returns: 🏡 TITOLO ACCATTIVANTE\n\n📝 DESCRIZIONE...
-function extractTitle(description) {
+function extractTitle(description, property) {
   if (!description) return null;
   // Match text after 🏡 until the next emoji section header or double newline
   const match = description.match(/🏡\s*(.+?)(?:\n\n📝|\n📝|$)/s);
+  let title = null;
   if (match && match[1]) {
-    return match[1].trim().replace(/\n/g, ' ').substring(0, 200);
+    title = match[1].trim().replace(/\n/g, ' ').substring(0, 200);
+  } else {
+    // Fallback: try to get the first meaningful line
+    title = description.split('\n')[0].replace(/^[🏡📝📍🏷️📞]\s*/, '').trim();
   }
-  // Fallback: try to get the first meaningful line
-  const firstLine = description.split('\n')[0].replace(/^[🏡📝📍🏷️📞]\s*/, '').trim();
-  return firstLine || null;
+  
+  // If title is too long or looks like a sentence (has verbs/commas that suggest description), build one from data
+  if (title && title.length < 120 && !title.includes('questo') && !title.includes('splendido') && !title.includes('situato')) {
+    return title;
+  }
+  
+  // Build title from property data: "Appartamento a/in Roma" etc.
+  if (property) {
+    const t = property.property_type || 'immobile';
+    const typeLabel = { apartment:'Appartamento', villa:'Villa', townhouse:'Schiera', attic:'Attico', studio:'Monolocale', office:'Ufficio', commercial:'Negozio', land:'Terreno', warehouse:'Magazzino', garage:'Box', building:'Fabbricato' }[t] || t;
+    const city = property.city || '';
+    const zone = property.zone || '';
+    const location = city || zone;
+    const preposition = location ? (' in ' + location) : '';
+    return (typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)) + preposition;
+  }
+  
+  return title ? title.substring(0, 100) : null;
 }
 
 // ── Helper: generate URL-friendly slug ─────────────────────────────
@@ -551,7 +570,7 @@ app.post('/analyze', authMiddleware, upload.array('files', 5), async (req, res) 
 
     res.json({
       description: finalDescription,
-      title: extractTitle(finalDescription),
+      title: extractTitle(finalDescription, null),
       images: imageUrls,
       model: result.model || '',
       remaining: limitCheck.remaining - 1,
@@ -930,7 +949,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     ).catch(() => {});
 
     // Extract title from AI-generated description
-    const title = extractTitle(finalDescription);
+    const title = extractTitle(finalDescription, propertyWithContacts);
 
     // Update property with description and title
     await pool.query('UPDATE properties SET description = ?, title = ?, ai_model = ?, photos = ?, status = ? WHERE id = ?',
