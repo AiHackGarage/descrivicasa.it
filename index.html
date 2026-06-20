@@ -1843,7 +1843,8 @@
         let editState = {
             id: null,
             uuid: null,
-            data: {}
+            data: {},
+            originalType: null
         };
 
         function loadEditPage(uuid) {
@@ -1892,6 +1893,7 @@
                     email: p.agent_email || '',
                     photos: typeof p.photos === 'string' ? (()=>{try{return JSON.parse(p.photos)}catch(e){return []}})() : (p.photos || [])
                 };
+                editState.originalType = editState.data.type;
                 renderEditPage();
                 setTimeout(initEditMap, 200);
             })
@@ -2092,6 +2094,18 @@
                 return;
             }
 
+            // Check if property type changed — if so, warn about credit cost
+            const typeChanged = (d.type || '').toLowerCase() !== (editState.originalType || '').toLowerCase();
+            if (typeChanged) {
+                const confirmed = confirm('🔄 Hai cambiato il tipo di immobile.\n\nQuesta modifica comporta la creazione di una nuova descrizione AI (consuma 1 credito).\n\nProcedere?');
+                if (!confirmed) {
+                    // User declined — revert type and re-render, let them click save again
+                    d.type = editState.originalType;
+                    renderEditPage();
+                    return;
+                }
+            }
+
             btn.textContent = '⏳ Salvataggio...';
             btn.disabled = true;
 
@@ -2145,6 +2159,29 @@
                 });
                 const data = await res.json();
                 if (data.error) { alert(data.error); btn.textContent = '💾 Salva modifiche'; btn.disabled = false; return; }
+
+                // If type changed and user confirmed, regenerate description via AI
+                if (typeChanged) {
+                    btn.textContent = '🤖 Generazione nuova descrizione...';
+                    const genRes = await fetch('/api/properties/' + editState.id + '/generate', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + authToken }
+                    });
+                    const genData = await genRes.json();
+                    if (genData.error) {
+                        if (genRes.status === 403) {
+                            alert('⚠️ Crediti insufficienti!\n\n' + genData.error + '\n\n💡 Vai alla pagina Piani per ricaricare o passare a un piano superiore.');
+                        } else {
+                            alert('Errore nella generazione della descrizione: ' + genData.error);
+                        }
+                        btn.textContent = '💾 Salva modifiche';
+                        btn.disabled = false;
+                        return;
+                    }
+                    // Update editState with generated title/desc so the redirect URL is correct
+                    if (genData.title) d.title = genData.title;
+                    if (genData.description) d.description = genData.description;
+                }
 
                 window.location.href = propertyUrl(editState.uuid, d.title || d.description);
             } catch (err) {
