@@ -253,7 +253,7 @@ REGOLE DI STILE:
 - Non superare le 400 parole in totale
 - Cattura l'emozione di vivere in quella casa`;
 
-const USER_PROMPT = `Analizza attentamente queste foto e scrivi una descrizione professionale completa pronta per essere pubblicata su Idealista, seguendo la struttura obbligatoria: TITOLO, DESCRIZIONE in paragrafi, ZONA, CARATTERISTICHE CHIAVE in elenco puntato, CONTATTI. Non aggiungere preamboli o frasi di cortesia. Produci solo la descrizione dell'annuncio.`;
+const USER_PROMPT = `Analizza attentamente queste foto e scrivi una descrizione professionale completa pronta per essere pubblicata su Idealista, seguendo la struttura obbligatoria: TITOLO, DESCRIZIONE in paragrafi, ZONA, CARATTERISTICHE CHIAVE in elenco puntato, CONTATTI. Non aggiungere preamboli o frasi di cortesia. Produci solo la descrizione dell'annuncio. Se tra le immagini c'è una planimetria o un disegno tecnico, ignorarlo: descrivi solo le foto reali.`;
 
 function encodeImage(filepath) {
   return fs.readFileSync(filepath, { encoding: 'base64' });
@@ -645,7 +645,7 @@ app.post('/api/chat', async (req, res) => {
 function buildPropertyPrompt(property) {
   const t = property.property_type || 'immobile';
   const contract = property.contract_type === 'rent' ? 'affitto' : 'vendita';
-  return `Analizza attentamente queste foto e scrivi una descrizione professionale completa per questo ${t} in ${contract}, seguendo la STRUTTURA OBBLIGATORIA: TITOLO, DESCRIZIONE in paragrafi, ZONA, CARATTERISTICHE CHIAVE in elenco puntato, CONTATTI. Non aggiungere preamboli. Produci solo la descrizione dell'annuncio.
+  return `Analizza attentamente queste foto e scrivi una descrizione professionale completa per questo ${t} in ${contract}, seguendo la STRUTTURA OBBLIGATORIA: TITOLO, DESCRIZIONE in paragrafi, ZONA, CARATTERISTICHE CHIAVE in elenco puntato, CONTATTI. Non aggiungere preamboli. Produci solo la descrizione dell'annuncio. Se tra le immagini c'è una planimetria o un disegno tecnico, ignorarlo: descrivi solo le foto reali.
 
 DATI DELL'IMMOBILE (integrarli nella descrizione):
 ${property.address ? `- Indirizzo: ${property.address}${property.civic ? ', ' + property.civic : ''}${property.city ? ', ' + property.city : ''}${property.province ? ' (' + property.province + ')' : ''}` : ''}

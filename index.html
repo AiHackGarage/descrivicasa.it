@@ -2004,7 +2004,7 @@
             // Section 7: Foto
             html += '<div class="edit-section">';
             html += '<h3>📸 Foto</h3>';
-            html += '<div class="photo-dropzone" onclick="document.getElementById(\'edit-photo-input\').click()"><div class="dz-icon">📷</div><p>Clicca per aggiungere foto</p></div>';
+            html += '<div class="photo-dropzone" onclick="document.getElementById(\'edit-photo-input\').click()"><div class="dz-icon">📷</div><p>Clicca per aggiungere foto</p><p style="font-size:0.75rem;color:#e8a838;margin-top:4px">⚠️ No planimetrie o documenti</p></div>';
             html += '<input type="file" id="edit-photo-input" multiple accept="image/*" style="display:none" onchange="handleEditPhotoSelect(event)">';
             html += photosHtml;
             html += '</div>';
@@ -2539,6 +2539,7 @@
                     <div class="dz-icon">📷</div>
                     <p>Trascina qui le foto o clicca per selezionarle</p>
                     <p style="font-size:0.8rem;color:#a0a0a0;margin-top:6px;">Max 10 foto • JPEG, PNG, WebP</p>
+                    <p style="font-size:0.75rem;color:#e8a838;margin-top:4px;">⚠️ Carica solo foto reali dell'immobile, non planimetrie o documenti</p>
                 </div>
                 <input type="file" id="photo-input" multiple accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
                 ${photosHtml}
