@@ -1510,7 +1510,9 @@
                         const dateStr = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
                         const div = document.createElement('div');
                         div.className = 'history-item';
-                        div.innerHTML = '<div class="h-date">' + dateStr + '</div><div class="h-text">' + escapeHtml(h.description.slice(0, 150)) + '</div>' + (h.model ? '<div class="h-model">' + h.model + '</div>' : '');
+                        div.innerHTML = '<div class="h-date">' + dateStr + '</div><div class="h-text">' + escapeHtml(h.description.slice(0, 150)) + '</div>'
+                            // Modello AI nascosto — riattivare per utenti Pro:
+                            // + (h.model ? '<div class="h-model">' + h.model + '</div>' : '');
                         div.onclick = () => showDescription(h);
                         list.appendChild(div);
                     });

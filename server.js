@@ -735,8 +735,6 @@ function injectContacts(description, property) {
   if (agentPhone || agentEmail) {
     if (agentPhone) contactsText += `- Tel: ${agentPhone}\n`;
     if (agentEmail) contactsText += `- Email: ${agentEmail}\n`;
-  } else {
-    contactsText += "Per maggiori informazioni o per fissare una visita, contatta l'agenzia.\n";
   }
   
   // Strip the AI-generated 📞 CONTATTI section (from 📞 to end of text, or to next section if present)
