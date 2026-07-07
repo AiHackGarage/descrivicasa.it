@@ -890,7 +890,6 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
             .catch(err => {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error-page').style.display = 'block';
-                console.error(err);
             });
 
         function copyLink() {
