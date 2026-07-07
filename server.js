@@ -7,6 +7,7 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
@@ -73,6 +74,31 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
+});
+
+// Rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Troppe richieste. Riprova tra qualche minuto.' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Troppi tentativi di accesso. Riprova tra 15 minuti.' },
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Troppe richieste AI. Riprova tra un minuto.' },
 });
 
 // Auth middleware
@@ -331,7 +357,7 @@ async function describeProperty(imagePaths, lang = 'it') {
 // ── Auth Routes ───────────────────────────────────────────────────
 
 // Registrazione con email
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password, marketing_consent } = req.body;
     if (!name || !email || !password) {
@@ -362,7 +388,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Login con email
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -395,7 +421,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Login con Google
-app.post('/api/auth/google', async (req, res) => {
+app.post('/api/auth/google', authLimiter, async (req, res) => {
   try {
     const { credential } = req.body;
     if (!credential) {
@@ -542,7 +568,7 @@ async function checkGenerationLimit(userId, plan) {
 }
 
 // ── Analyze Route (protetto) ─────────────────────────────────────
-app.post('/analyze', authMiddleware, upload.array('files', 5), async (req, res) => {
+app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 5), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'Carica almeno una foto' });
@@ -615,7 +641,7 @@ DOMANDE TECNICHE:
 
 Rispondi in italiano, sii gentile e professionale. Se non sai qualcosa, indirizza l'utente alla email di supporto.`;
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', aiLimiter, async (req, res) => {
   try {
     const { messages } = req.body;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
