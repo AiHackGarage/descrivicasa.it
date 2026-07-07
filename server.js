@@ -272,11 +272,9 @@ function getMime(ext) {
   return mimeMap[ext] || 'image/jpeg';
 }
 
-async function describeProperty(imagePaths, lang = 'it') {
-  const content = [];
-  const systemContent = lang === 'it' ? SYSTEM_PROMPT : SYSTEM_PROMPT.replace(/italiano/g, 'English').replace(/italiane/g, 'Italian');
-  const userText = lang === 'it' ? USER_PROMPT : USER_PROMPT.replace(/italiano/g, 'English');
-  content.push({ type: 'text', text: userText });
+// Shared vision API call — handles image encoding, fetch, and response parsing
+async function callVisionAPI(imagePaths, systemContent, userText) {
+  const content = [{ type: 'text', text: userText }];
 
   for (const fp of imagePaths) {
     if (!fs.existsSync(fp)) continue;
@@ -322,6 +320,12 @@ async function describeProperty(imagePaths, lang = 'it') {
   } catch (e) {
     return { error: 'Unexpected API response', raw: data };
   }
+}
+
+async function describeProperty(imagePaths, lang = 'it') {
+  const systemContent = lang === 'it' ? SYSTEM_PROMPT : SYSTEM_PROMPT.replace(/italiano/g, 'English').replace(/italiane/g, 'Italian');
+  const userText = lang === 'it' ? USER_PROMPT : USER_PROMPT.replace(/italiano/g, 'English');
+  return callVisionAPI(imagePaths, systemContent, userText);
 }
 
 // ── Auth Routes ───────────────────────────────────────────────────
@@ -678,55 +682,7 @@ Intreccia questi dati nella descrizione in modo naturale, non fare un semplice e
 }
 
 async function describePropertyWithData(imagePaths, propertyData) {
-  const content = [];
-  const systemContent = SYSTEM_PROMPT;
-  const userText = buildPropertyPrompt(propertyData);
-  content.push({ type: 'text', text: userText });
-
-  for (const fp of imagePaths) {
-    if (!fs.existsSync(fp)) continue;
-    const b64 = encodeImage(fp);
-    const ext = path.extname(fp).toLowerCase().replace('.', '');
-    content.push({
-      type: 'image_url',
-      image_url: { url: `data:${getMime(ext)};base64,${b64}` },
-    });
-  }
-
-  const resp = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://descrivicasa.it',
-      'X-Title': 'DescriviCasa',
-    },
-    body: JSON.stringify({
-      model: VISION_MODEL,
-      messages: [
-        { role: 'system', content: systemContent },
-        { role: 'user', content },
-      ],
-      max_tokens: 2048,
-      temperature: 0.7,
-    }),
-    signal: AbortSignal.timeout(120000),
-  });
-
-  if (!resp.ok) {
-    return { error: `API error ${resp.status}: ${await resp.text()}` };
-  }
-
-  const data = await resp.json();
-  try {
-    return {
-      description: data.choices[0].message.content,
-      model: data.model || VISION_MODEL,
-      tokens: data.usage || {},
-    };
-  } catch (e) {
-    return { error: 'Unexpected API response', raw: data };
-  }
+  return callVisionAPI(imagePaths, SYSTEM_PROMPT, buildPropertyPrompt(propertyData));
 }
 
 // ── Helper: inject contact info into description, replacing AI-generated contacts ──
