@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -51,9 +51,9 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
-    const session = uuidv4().slice(0, 12);
+    const session = crypto.randomUUID().slice(0, 12);
     const ext = path.extname(file.originalname) || '.jpg';
-    cb(null, `${session}_${uuidv4().slice(0, 8)}${ext}`);
+    cb(null, `${session}_${crypto.randomUUID().slice(0, 8)}${ext}`);
   },
 });
 const upload = multer({
@@ -744,7 +744,7 @@ function injectContacts(description, property) {
 app.post('/api/properties', authMiddleware, upload.array('files', 10), async (req, res) => {
   try {
     const data = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : (req.body.data || req.body);
-    const uuid = uuidv4();
+    const uuid = crypto.randomUUID();
     const photoUrls = req.files ? req.files.map(f => `/media/uploads/${path.basename(f.path)}`) : [];
 
     await pool.query(`
