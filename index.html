@@ -37,6 +37,7 @@
         "url": "https://descrivicasa.it",
         "inLanguage": "it-IT",
         "offers": [
+            { "@type": "Offer", "name": "Gratis", "price": "0", "priceCurrency": "EUR", "description": "3 descrizioni gratis al mese" },
             { "@type": "Offer", "name": "Base", "price": "9", "priceCurrency": "EUR", "description": "50 descrizioni al mese" },
             { "@type": "Offer", "name": "Pro", "price": "29", "priceCurrency": "EUR", "description": "Descrizioni illimitate" }
         ]
@@ -1303,6 +1304,11 @@
         // ════════════════════════════════════════════════════════
         let authToken = localStorage.getItem('dc_token');
         let currentUser = null;
+
+        function getMaxPhotos() {
+            const plan = (currentUser && currentUser.plan) || 'free';
+            return plan === 'pro' ? 10 : 5;
+        }
         let currentView = 'landing';
 
         // ── URL helpers ─────────────────────────────────────────
@@ -2024,7 +2030,7 @@
         function handleEditPhotoSelect(e) {
             const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
             if (files.length === 0) return;
-            const remaining = 10 - (editState.data.photos ? editState.data.photos.length : 0);
+            const remaining = getMaxPhotos() - (editState.data.photos ? editState.data.photos.length : 0);
             files.slice(0, remaining).forEach(f => {
                 editState.data.photos.push({ url: URL.createObjectURL(f), file: f, isNew: true });
             });
@@ -2540,7 +2546,7 @@
                 <div class="photo-dropzone" id="photo-dropzone" onclick="document.getElementById('photo-input').click()">
                     <div class="dz-icon">📷</div>
                     <p>Trascina qui le foto o clicca per selezionarle</p>
-                    <p style="font-size:0.8rem;color:#a0a0a0;margin-top:6px;">Max 10 foto • JPEG, PNG, WebP</p>
+                    <p style="font-size:0.8rem;color:#a0a0a0;margin-top:6px;">Max ${getMaxPhotos()} foto • JPEG, PNG, WebP</p>
                     <p style="font-size:0.75rem;color:#e8a838;margin-top:4px;">⚠️ Carica solo foto reali dell'immobile, non planimetrie o documenti</p>
                 </div>
                 <input type="file" id="photo-input" multiple accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
@@ -2562,7 +2568,7 @@
         function handlePhotoSelect(e) {
             const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
             if (files.length === 0) return;
-            const remaining = 10 - (editorState.data.photos ? editorState.data.photos.length : 0);
+            const remaining = getMaxPhotos() - (editorState.data.photos ? editorState.data.photos.length : 0);
             const toAdd = files.slice(0, remaining);
             toAdd.forEach(f => {
                 const url = URL.createObjectURL(f);

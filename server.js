@@ -299,7 +299,7 @@ function getMime(ext) {
 }
 
 // Shared vision API call — handles image encoding, fetch, and response parsing
-async function callVisionAPI(imagePaths, systemContent, userText) {
+async function callVisionAPI(imagePaths, systemContent, userText, options = {}) {
   const content = [{ type: 'text', text: userText }];
 
   for (const fp of imagePaths) {
@@ -326,7 +326,7 @@ async function callVisionAPI(imagePaths, systemContent, userText) {
         { role: 'system', content: systemContent },
         { role: 'user', content },
       ],
-      max_tokens: 2048,
+      max_tokens: options.maxTokens || 2048,
       temperature: 0.7,
     }),
     signal: AbortSignal.timeout(120000),
@@ -348,10 +348,13 @@ async function callVisionAPI(imagePaths, systemContent, userText) {
   }
 }
 
-async function describeProperty(imagePaths, lang = 'it') {
-  const systemContent = lang === 'it' ? SYSTEM_PROMPT : SYSTEM_PROMPT.replace(/italiano/g, 'English').replace(/italiane/g, 'Italian');
+async function describeProperty(imagePaths, lang = 'it', plan = 'free') {
+  const cfg = PLAN_CONFIG[plan] || PLAN_CONFIG.free;
+  const wordLimit = cfg.wordLimit;
+  const systemContent = (lang === 'it' ? SYSTEM_PROMPT : SYSTEM_PROMPT.replace(/italiano/g, 'English').replace(/italiane/g, 'Italian'))
+    .replace(/Non superare le \d+ parole in totale/, `Non superare le ${wordLimit} parole in totale`);
   const userText = lang === 'it' ? USER_PROMPT : USER_PROMPT.replace(/italiano/g, 'English');
-  return callVisionAPI(imagePaths, systemContent, userText);
+  return callVisionAPI(imagePaths, systemContent, userText, { maxTokens: cfg.maxTokens });
 }
 
 // ── Auth Routes ───────────────────────────────────────────────────
@@ -543,6 +546,13 @@ function slugify(text) {
 // ── Helper: check generations limit ──────────────────────────────
 const PLAN_LIMITS = { free: 3, base: 50, pro: 9999 };
 
+// Plan-specific AI generation config
+const PLAN_CONFIG = {
+  free:  { maxPhotos: 5,  maxTokens: 2048, wordLimit: 400 },
+  base:  { maxPhotos: 5,  maxTokens: 2048, wordLimit: 400 },
+  pro:   { maxPhotos: 10, maxTokens: 4096, wordLimit: 800 },
+};
+
 async function checkGenerationLimit(userId, plan) {
   const [rows] = await pool.query(
     'SELECT monthly_generations, monthly_reset FROM users WHERE id = ?',
@@ -568,14 +578,20 @@ async function checkGenerationLimit(userId, plan) {
 }
 
 // ── Analyze Route (protetto) ─────────────────────────────────────
-app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 5), async (req, res) => {
+app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'Carica almeno una foto' });
     }
 
+    const plan = req.user.plan || 'free';
+    const maxPhotos = (PLAN_CONFIG[plan] || PLAN_CONFIG.free).maxPhotos;
+    if (req.files.length > maxPhotos) {
+      return res.status(400).json({ error: `Il piano ${plan} permette al massimo ${maxPhotos} foto. Passa a Pro per caricarne fino a 10.` });
+    }
+
     // Check limit
-    const limitCheck = await checkGenerationLimit(req.user.id, req.user.plan || 'free');
+    const limitCheck = await checkGenerationLimit(req.user.id, plan);
     if (!limitCheck.allowed) {
       return res.status(403).json({
         error: `Hai raggiunto il limite di ${PLAN_LIMITS[req.user.plan || 'free']} descrizioni gratuite. Passa a un piano a pagamento per continuare.`,
@@ -583,7 +599,7 @@ app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 5), async 
       });
     }
 
-    const result = await describeProperty(req.files.map((f) => f.path));
+    const result = await describeProperty(req.files.map((f) => f.path), 'it', plan);
     if (result.error) return res.status(500).json(result);
 
     // Increment counter
@@ -625,7 +641,7 @@ const CHAT_MODEL = process.env.CHAT_MODEL || 'deepseek/deepseek-chat';
 const CHAT_SYSTEM = `Sei un assistente virtuale di DescriviCasa.it, un servizio che genera descrizioni immobiliari professionali tramite AI.
 
 Il servizio funziona così:
-- L'utente carica fino a 5 foto di un immobile
+- L'utente carica fino a 5 foto di un immobile (10 per il piano Pro)
 - L'AI analizza le foto e genera una descrizione professionale in italiano
 - Le descrizioni sono adatte per Idealista, Immobiliare.it, Casa.it
 
@@ -707,8 +723,10 @@ ${property.agent_name ? `\nCONTATTI DA INSERIRE NELLA SEZIONE 📞:\n- Nome: ${p
 Intreccia questi dati nella descrizione in modo naturale, non fare un semplice elenco. La descrizione deve sembrare scritta da un'agenzia immobiliare professionista.`;
 }
 
-async function describePropertyWithData(imagePaths, propertyData) {
-  return callVisionAPI(imagePaths, SYSTEM_PROMPT, buildPropertyPrompt(propertyData));
+async function describePropertyWithData(imagePaths, propertyData, plan = 'free') {
+  const cfg = PLAN_CONFIG[plan] || PLAN_CONFIG.free;
+  const systemContent = SYSTEM_PROMPT.replace(/Non superare le \d+ parole in totale/, `Non superare le ${cfg.wordLimit} parole in totale`);
+  return callVisionAPI(imagePaths, systemContent, buildPropertyPrompt(propertyData), { maxTokens: cfg.maxTokens });
 }
 
 // ── Helper: inject contact info into description, replacing AI-generated contacts ──
@@ -900,8 +918,15 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
       return res.status(400).json({ error: 'Carica almeno una foto per generare la descrizione' });
     }
 
+    const plan = req.user.plan || 'free';
+    const maxPhotos = (PLAN_CONFIG[plan] || PLAN_CONFIG.free).maxPhotos;
+    // Check total photos don't exceed plan limit
+    if (photos.length > maxPhotos) {
+      return res.status(400).json({ error: `Il piano ${plan} permette al massimo ${maxPhotos} foto. Passa a Pro per averne fino a 10.` });
+    }
+
     // Check generation limit
-    const limitCheck = await checkGenerationLimit(req.user.id, req.user.plan || 'free');
+    const limitCheck = await checkGenerationLimit(req.user.id, plan);
     if (!limitCheck.allowed) {
       return res.status(403).json({
         error: `Hai raggiunto il limite di ${PLAN_LIMITS[req.user.plan || 'free']} descrizioni gratuite.`,
@@ -920,7 +945,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
       agent_email: property.agent_email || req.user.email,
     };
 
-    const result = await describePropertyWithData(filePaths, propertyWithContacts);
+    const result = await describePropertyWithData(filePaths, propertyWithContacts, plan);
     if (result.error) return res.status(500).json(result);
 
     // Inject real contact info into the AI description (replace AI-generated contacts)
