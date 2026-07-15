@@ -1184,6 +1184,57 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
   }
 });
 
+// Sincronizza il piano dopo il redirect da Stripe (fallback se webhook in ritardo)
+app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: 'Stripe non configurato' });
+
+    const [users] = await pool.query(
+      'SELECT id, plan, stripe_customer_id FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
+
+    const user = users[0];
+
+    // Se non ha customer_id Stripe, non c'è nulla da sincronizzare
+    if (!user.stripe_customer_id) {
+      return res.json({ plan: user.plan, synced: false, reason: 'no_stripe_customer' });
+    }
+
+    // Cerca subscription attive per questo customer
+    const subscriptions = await stripe.subscriptions.list({
+      customer: user.stripe_customer_id,
+      status: 'active',
+      limit: 1,
+    });
+
+    if (subscriptions.data.length > 0) {
+      const sub = subscriptions.data[0];
+      const planFromMeta = sub.metadata?.plan;
+      if (planFromMeta && ['base', 'pro'].includes(planFromMeta) && user.plan !== planFromMeta) {
+        // Aggiorna piano
+        try {
+          await pool.query(
+            'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
+            [planFromMeta, sub.id, 'active', user.id]
+          );
+        } catch (_) {
+          await pool.query('UPDATE users SET plan = ? WHERE id = ?', [planFromMeta, user.id]);
+        }
+        const limit = PLAN_LIMITS[planFromMeta] || 3;
+        return res.json({ plan: planFromMeta, synced: true, monthly_limit: limit, remaining: limit });
+      }
+      return res.json({ plan: user.plan, synced: false, reason: 'already_synced' });
+    }
+
+    return res.json({ plan: user.plan, synced: false, reason: 'no_active_subscription' });
+  } catch (err) {
+    console.error('Sync subscription error:', err);
+    res.status(500).json({ error: 'Errore sincronizzazione abbonamento' });
+  }
+});
+
 // ── Debug DB connection ───────────────────────────────────────────
 app.get('/api/debug-db', async (req, res) => {
   try {

@@ -2829,6 +2829,29 @@
                 if (data.user) {
                     currentUser = data.user;
                     updateUI();
+
+                    // Sincronizza abbonamento dopo redirect da Stripe (?subscribed=base/pro)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const subscribedPlan = urlParams.get('subscribed');
+                    if (subscribedPlan && (subscribedPlan === 'base' || subscribedPlan === 'pro')) {
+                        fetch('/api/sync-subscription', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+                        })
+                        .then(r => r.json())
+                        .then(syncData => {
+                            if (syncData.synced) {
+                                currentUser.plan = syncData.plan;
+                                currentUser.monthly_limit = syncData.monthly_limit;
+                                currentUser.remaining = syncData.remaining;
+                                updateUI();
+                                // Pulisce URL
+                                window.history.replaceState({}, '', '/');
+                            }
+                        })
+                        .catch(() => {});
+                    }
+
                     if (currentView === 'dashboard' || currentView === 'landing') loadDashboard();
                 } else {
                     localStorage.removeItem('dc_token');
