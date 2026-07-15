@@ -102,10 +102,16 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       const plan = session.metadata?.plan;
 
       if (userId && plan && ['base', 'pro'].includes(plan)) {
-        await pool.query(
-          'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
-          [plan, session.subscription || null, 'active', userId]
-        );
+        // Prima prova UPDATE completo (con colonne Stripe se esistono)
+        try {
+          await pool.query(
+            'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
+            [plan, session.subscription || null, 'active', userId]
+          );
+        } catch (_) {
+          // Fallback: solo piano (colonne Stripe non ancora migrate)
+          await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, userId]);
+        }
         console.log(`✅ User ${userId} upgraded to ${plan}`);
       }
     }
@@ -116,24 +122,31 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
 
       if (customerId) {
-        await pool.query(
-          'UPDATE users SET subscription_status = ? WHERE stripe_customer_id = ?',
-          [sub.status, customerId]
-        );
+        try {
+          await pool.query(
+            'UPDATE users SET subscription_status = ? WHERE stripe_customer_id = ?',
+            [sub.status, customerId]
+          );
+        } catch (_) { /* colonne Stripe non ancora migrate */ }
 
         // Downgrade a free se cancellato o insolvente
         if (sub.status === 'canceled' || sub.status === 'unpaid') {
-          await pool.query(
-            'UPDATE users SET plan = "free", stripe_subscription_id = NULL WHERE stripe_customer_id = ?',
-            [customerId]
-          );
+          try {
+            await pool.query(
+              'UPDATE users SET plan = "free", stripe_subscription_id = NULL WHERE stripe_customer_id = ?',
+              [customerId]
+            );
+          } catch (_) {
+            await pool.query('UPDATE users SET plan = "free" WHERE stripe_customer_id = ?', [customerId]);
+          }
           console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
         } else if (sub.status === 'active') {
-          // Mantieni il piano corrente, aggiorna solo subscription_id
-          await pool.query(
-            'UPDATE users SET stripe_subscription_id = ? WHERE stripe_customer_id = ?',
-            [sub.id, customerId]
-          );
+          try {
+            await pool.query(
+              'UPDATE users SET stripe_subscription_id = ? WHERE stripe_customer_id = ?',
+              [sub.id, customerId]
+            );
+          } catch (_) { /* colonna stripe_subscription_id non ancora migrata */ }
         }
       }
     }
