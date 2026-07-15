@@ -366,6 +366,14 @@
         .btn-sm:hover { opacity: 0.9; }
         .btn-sm.danger { background: #ff3b30; }
         .btn-sm.danger:hover { opacity: 0.85; }
+        .btn-pdf {
+            display: block; width: 100%; margin-top: 12px; padding: 12px;
+            background: #34c759; color: white;
+            border: none; border-radius: 12px;
+            font-size: 1rem; font-weight: 600; cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-pdf:hover { opacity: 0.9; }
 
         .owner-actions { display: none; margin-top: 8px; }
         .owner-actions.visible { display: block; }
@@ -500,6 +508,8 @@
                         <a class="btn-sm" id="owner-edit-link" href="/">✏️ Modifica</a>
                         <button class="btn-sm danger" onclick="deleteThisProperty()">🗑️ Elimina</button>
                     </div>
+
+                    <button class="btn-pdf" id="btn-download-pdf" onclick="downloadPDF()" style="display:none">📄 Scarica PDF</button>
 
                     <div class="share-buttons">
                         <a class="share-btn fb" id="share-fb" href="#" target="_blank" title="Facebook">f</a>
@@ -884,6 +894,9 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
                 document.getElementById('share-tw').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText) + '&url=' + encodeURIComponent(pageUrl);
                 document.getElementById('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + pageUrl);
 
+                // PDF download — available to all
+                document.getElementById('btn-download-pdf').style.display = 'block';
+
                 // Check ownership and edit mode
                 checkOwnerAndEdit();
             })
@@ -899,6 +912,11 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
                 msg.style.display = 'block';
                 setTimeout(() => msg.style.display = 'none', 2000);
             });
+        }
+
+        function downloadPDF() {
+            if (!uuid) return;
+            window.open(BASE + '/api/p/' + uuid + '/pdf', '_blank');
         }
 
         // ════════════════════════════════════════════════════════

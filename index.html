@@ -1765,6 +1765,7 @@
                 html += '</div></div>';
                 html += '<div class="property-card-actions" onclick="event.stopPropagation()">';
                 html += '<button style="background:#667eea;color:white" onclick="editProperty(\'' + (p.uuid || p.id) + '\')">✏️ Modifica</button>';
+                html += '<button style="background:#34c759;color:white" onclick="event.stopPropagation();window.open(\'/api/p/' + encodeURIComponent(p.uuid || p.id) + '/pdf\',\'_blank\')">📄 PDF</button>';
                 html += '<button style="background:#ff3b30;color:white" onclick="deleteProperty(' + p.id + ')">🗑️ Elimina</button>';
                 html += '</div></div>';
             });
