@@ -456,7 +456,7 @@
                     <li class="missing">Esportazione PDF</li>
                     <li class="missing">API pubblica</li>
                 </ul>
-                <a href="#" class="btn-cta">Inizia Ora</a>
+                <a href="#" class="btn-cta" onclick="checkout('base');return false">Inizia Ora</a>
             </div>
 
             <div class="plan featured">
@@ -472,7 +472,7 @@
                     <li>API pubblica per integrazione</li>
                     <li>Supporto prioritario</li>
                 </ul>
-                <a href="#" class="btn-cta">Inizia Ora</a>
+                <a href="#" class="btn-cta" onclick="checkout('pro');return false">Inizia Ora</a>
             </div>
         </div>
 
@@ -506,7 +506,60 @@
             }
         }
 
-        // ── Modal ─────────────────────────────────────────────
+        // ── Stripe Checkout ──────────────────────────────────────
+        let pendingCheckoutPlan = null;
+
+        async function checkout(plan) {
+            // Se non autenticato, mostra la modale e ricorda il piano
+            if (!authToken || !currentUser) {
+                pendingCheckoutPlan = plan;
+                showModal('register');
+                return;
+            }
+
+            try {
+                const btn = document.querySelector('.plan' + (plan === 'pro' ? '.featured' : ':not(.featured):not(:first-child)') + ' .btn-cta');
+                // Più semplice: trova tutti i btn-cta
+                const btns = document.querySelectorAll('.btn-cta');
+                let targetBtn = null;
+                for (const b of btns) {
+                    if (b.onclick && b.onclick.toString().includes("'" + plan + "'")) {
+                        targetBtn = b;
+                        break;
+                    }
+                }
+                if (targetBtn) targetBtn.textContent = '⏳...';
+
+                const resp = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken,
+                    },
+                    body: JSON.stringify({ plan }),
+                });
+
+                const data = await resp.json();
+                if (targetBtn) targetBtn.textContent = 'Inizia Ora';
+
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    alert(data.error || 'Errore creazione pagamento');
+                }
+            } catch (err) {
+                alert('Errore: ' + err.message);
+            }
+        }
+
+        // Dopo login/register riuscito, se c'era un checkout in attesa, procedi
+        function afterAuthSuccess() {
+            if (pendingCheckoutPlan) {
+                const plan = pendingCheckoutPlan;
+                pendingCheckoutPlan = null;
+                checkout(plan);
+            }
+        }
         function showModal(type) {
             const ml = document.getElementById('modal-login');
             const mr = document.getElementById('modal-register');
@@ -554,6 +607,7 @@
                 localStorage.setItem('dc_token', authToken);
                 closeModal();
                 updateUI();
+                afterAuthSuccess();
             })
             .catch(err => alert('Errore Google: ' + err.message));
         }
@@ -581,7 +635,7 @@
                 localStorage.setItem('dc_token', authToken);
                 closeModal();
                 updateUI();
-                window.location.href = '/';
+                afterAuthSuccess();
             })
             .catch(err => {
                 if (btn) btn.textContent = 'Accedi';
@@ -617,7 +671,7 @@
                 localStorage.setItem('dc_token', authToken);
                 closeModal();
                 updateUI();
-                window.location.href = '/';
+                afterAuthSuccess();
             })
             .catch(err => {
                 if (btn) btn.textContent = 'Crea Account';

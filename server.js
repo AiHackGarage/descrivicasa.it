@@ -9,8 +9,25 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+// Project-level .env overrides (e.g., Stripe test keys)
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+
+// ── Stripe ─────────────────────────────────────────────────────────
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY_PROVA || process.env.STRIPE_SECRET_KEY || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET_PROVA || process.env.STRIPE_WEBHOOK_SECRET || '';
+const STRIPE_PRICE_ID_BASE = process.env.STRIPE_PRICE_ID_BASIC_PROVA || process.env.STRIPE_PRICE_ID_BASE || '';
+const STRIPE_PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO_PROVA || process.env.STRIPE_PRICE_ID_PRO || '';
+const STRIPE_PUBLIC_KEY = process.env.STRIPE_PUBLIC_KEY_PROVA || process.env.STRIPE_PUBLIC_KEY || '';
+
+let stripe = null;
+if (STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(STRIPE_SECRET_KEY);
+  console.log('✅ Stripe initialized');
+} else {
+  console.log('⚠️  Stripe non configurato (manca STRIPE_SECRET_KEY)');
+}
 const PORT = process.env.PORT || 8000;
 
 // ── Config ────────────────────────────────────────────────────────
@@ -62,6 +79,70 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     cb(null, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype));
   },
+});
+
+// ── Stripe webhook (richiede raw body, prima di express.json()) ────
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(400).json({ error: 'Stripe non configurato' });
+
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('Stripe webhook signature error:', err.message);
+    return res.status(400).json({ error: `Firma webhook non valida` });
+  }
+
+  try {
+    // Gestisci checkout.session.completed → upgrade piano utente
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const userId = parseInt(session.metadata?.userId, 10);
+      const plan = session.metadata?.plan;
+
+      if (userId && plan && ['base', 'pro'].includes(plan)) {
+        await pool.query(
+          'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
+          [plan, session.subscription || null, 'active', userId]
+        );
+        console.log(`✅ User ${userId} upgraded to ${plan}`);
+      }
+    }
+
+    // Gestisci subscription updates (rinnovi, cancellazioni, mancati pagamenti)
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object;
+      const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
+
+      if (customerId) {
+        await pool.query(
+          'UPDATE users SET subscription_status = ? WHERE stripe_customer_id = ?',
+          [sub.status, customerId]
+        );
+
+        // Downgrade a free se cancellato o insolvente
+        if (sub.status === 'canceled' || sub.status === 'unpaid') {
+          await pool.query(
+            'UPDATE users SET plan = "free", stripe_subscription_id = NULL WHERE stripe_customer_id = ?',
+            [customerId]
+          );
+          console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
+        } else if (sub.status === 'active') {
+          // Mantieni il piano corrente, aggiorna solo subscription_id
+          await pool.query(
+            'UPDATE users SET stripe_subscription_id = ? WHERE stripe_customer_id = ?',
+            [sub.id, customerId]
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Stripe webhook processing error:', err);
+    return res.status(500).json({ error: 'Errore processamento webhook' });
+  }
+
+  res.json({ received: true });
 });
 
 // ── Middleware ─────────────────────────────────────────────────────
@@ -140,6 +221,9 @@ async function initDatabase() {
     try { await conn.query(`ALTER TABLE users ADD COLUMN monthly_generations INT DEFAULT 0 AFTER plan`); } catch (_) {}
     try { await conn.query(`ALTER TABLE users ADD COLUMN monthly_reset DATE DEFAULT NULL AFTER monthly_generations`); } catch (_) {}
     try { await conn.query(`ALTER TABLE users ADD COLUMN marketing_consent BOOLEAN DEFAULT FALSE AFTER monthly_reset`); } catch (_) {}
+    try { await conn.query(`ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) DEFAULT NULL AFTER marketing_consent`); } catch (_) {}
+    try { await conn.query(`ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255) DEFAULT NULL AFTER stripe_customer_id`); } catch (_) {}
+    try { await conn.query(`ALTER TABLE users ADD COLUMN subscription_status VARCHAR(50) DEFAULT NULL AFTER stripe_subscription_id`); } catch (_) {}
 
     // Generations history table
     await conn.query(`
@@ -1025,6 +1109,66 @@ app.get('/p/:uuid/:slug', (req, res) => {
 });
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// ── Stripe Checkout ────────────────────────────────────────────────
+
+// Restituisce la chiave pubblica Stripe al client
+app.get('/api/stripe-public-key', (req, res) => {
+  if (!STRIPE_PUBLIC_KEY) return res.status(500).json({ error: 'Stripe non configurato' });
+  res.json({ publicKey: STRIPE_PUBLIC_KEY });
+});
+
+// Crea una sessione di checkout Stripe
+app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: 'Stripe non configurato. Controlla STRIPE_SECRET_KEY nel .env' });
+
+    const { plan, successUrl, cancelUrl } = req.body;
+    if (!plan || !['base', 'pro'].includes(plan)) {
+      return res.status(400).json({ error: 'Piano non valido. Scegli base o pro.' });
+    }
+
+    const priceId = plan === 'base' ? STRIPE_PRICE_ID_BASE : STRIPE_PRICE_ID_PRO;
+    if (!priceId) {
+      return res.status(500).json({ error: `Price ID non configurato per il piano ${plan}.` });
+    }
+
+    // Recupera o crea il customer Stripe
+    const [users] = await pool.query(
+      'SELECT id, email, name, stripe_customer_id, plan AS current_plan FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
+
+    const user = users[0];
+    let customerId = user.stripe_customer_id;
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name,
+        metadata: { userId: String(user.id) },
+      });
+      customerId = customer.id;
+      await pool.query('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customerId, user.id]);
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: 'subscription',
+      success_url: successUrl || 'https://descrivicasa.it/?subscribed=' + plan,
+      cancel_url: cancelUrl || 'https://descrivicasa.it/pricing',
+      metadata: { userId: String(req.user.id), plan },
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe checkout error:', err);
+    res.status(500).json({ error: 'Errore creazione sessione di pagamento: ' + err.message });
+  }
 });
 
 // ── Debug DB connection ───────────────────────────────────────────
