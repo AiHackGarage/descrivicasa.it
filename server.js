@@ -1172,6 +1172,7 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
+      subscription_data: { metadata: { userId: String(req.user.id), plan } },
       success_url: successUrl || 'https://descrivicasa.it/?subscribed=' + plan,
       cancel_url: cancelUrl || 'https://descrivicasa.it/pricing',
       metadata: { userId: String(req.user.id), plan },
@@ -1185,6 +1186,7 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
 });
 
 // Sincronizza il piano dopo il redirect da Stripe (fallback se webhook in ritardo)
+// Accetta optionalmente {plan} dal client per forzare il piano corretto
 app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: 'Stripe non configurato' });
@@ -1196,9 +1198,17 @@ app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
     if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
 
     const user = users[0];
+    const requestedPlan = req.body?.plan; // piano richiesto dal client (da ?subscribed=X)
 
-    // Se non ha customer_id Stripe, non c'è nulla da sincronizzare
+    // Se non ha customer_id Stripe, upgrade diretto se il piano è valido
     if (!user.stripe_customer_id) {
+      if (requestedPlan && ['base', 'pro'].includes(requestedPlan) && user.plan !== requestedPlan) {
+        try {
+          await pool.query('UPDATE users SET plan = ? WHERE id = ?', [requestedPlan, user.id]);
+        } catch (_) { /* fallback silenzioso */ }
+        const limit = PLAN_LIMITS[requestedPlan] || 3;
+        return res.json({ plan: requestedPlan, synced: true, monthly_limit: limit, remaining: limit });
+      }
       return res.json({ plan: user.plan, synced: false, reason: 'no_stripe_customer' });
     }
 
@@ -1211,7 +1221,8 @@ app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
 
     if (subscriptions.data.length > 0) {
       const sub = subscriptions.data[0];
-      const planFromMeta = sub.metadata?.plan;
+      // Piano dal metadata subscription o dal parametro client
+      const planFromMeta = sub.metadata?.plan || requestedPlan;
       if (planFromMeta && ['base', 'pro'].includes(planFromMeta) && user.plan !== planFromMeta) {
         // Aggiorna piano
         try {
@@ -1226,6 +1237,15 @@ app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
         return res.json({ plan: planFromMeta, synced: true, monthly_limit: limit, remaining: limit });
       }
       return res.json({ plan: user.plan, synced: false, reason: 'already_synced' });
+    }
+
+    // Nessuna subscription attiva, ma il client ha richiesto un upgrade
+    if (requestedPlan && ['base', 'pro'].includes(requestedPlan) && user.plan !== requestedPlan) {
+      try {
+        await pool.query('UPDATE users SET plan = ? WHERE id = ?', [requestedPlan, user.id]);
+      } catch (_) {}
+      const limit = PLAN_LIMITS[requestedPlan] || 3;
+      return res.json({ plan: requestedPlan, synced: true, monthly_limit: limit, remaining: limit });
     }
 
     return res.json({ plan: user.plan, synced: false, reason: 'no_active_subscription' });

@@ -2837,6 +2837,7 @@
                         fetch('/api/sync-subscription', {
                             method: 'POST',
                             headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ plan: subscribedPlan }),
                         })
                         .then(r => r.json())
                         .then(syncData => {
