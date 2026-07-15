@@ -745,7 +745,7 @@ Il servizio funziona così:
 PREZZI:
 - Free: 3 descrizioni gratis al mese
 - Base: €9/mese, 50 descrizioni, 5 foto per descrizione
-- Pro: €29/mese, illimitate, 10 foto per descrizione, PDF, API, supporto prioritario
+- Pro: €29/mese, illimitate, 10 foto per descrizione, PDF, API
 
 DOMANDE TECNICHE:
 - Serve solo un account email o Google per registrarsi
