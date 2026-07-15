@@ -1066,9 +1066,36 @@
             .chat-panel { width: calc(100% - 32px); right: 16px; bottom: 16px; max-height: 450px; }
             .detail-images { grid-template-columns: repeat(2, 1fr); }
         }
+
+        /* ── Upgrade Banner ────────────────────────────────── */
+        .upgrade-banner {
+            position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-120px);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; padding: 16px 24px; border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(102,126,234,0.35);
+            z-index: 500; display: flex; align-items: center; gap: 14px;
+            font-size: 0.95rem; max-width: 500px; width: calc(100% - 32px);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .upgrade-banner.show { transform: translateX(-50%) translateY(0); }
+        .upgrade-banner .banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+        .upgrade-banner .banner-text { flex: 1; line-height: 1.45; }
+        .upgrade-banner .banner-text strong { font-weight: 700; }
+        .upgrade-banner .banner-close {
+            background: rgba(255,255,255,0.2); border: none; color: white;
+            width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+            font-size: 0.9rem; flex-shrink: 0; transition: background 0.2s;
+        }
+        .upgrade-banner .banner-close:hover { background: rgba(255,255,255,0.35); }
     </style>
 </head>
 <body>
+    <!-- ── Upgrade Banner (mostrato dopo checkout Stripe) ──── -->
+    <div class="upgrade-banner" id="upgrade-banner">
+        <span class="banner-icon">🎉</span>
+        <span class="banner-text" id="banner-text"></span>
+        <button class="banner-close" onclick="dismissBanner()">✕</button>
+    </div>
     <!-- ── Top Bar ──────────────────────────────────────────── -->
     <div class="topbar">
         <a class="topbar-logo" onclick="navigateTo('landing')">🏠 DescriviCasa.it</a>
@@ -2846,6 +2873,8 @@
                                 currentUser.monthly_limit = syncData.monthly_limit;
                                 currentUser.remaining = syncData.remaining;
                                 updateUI();
+                                // Banner di ringraziamento personalizzato
+                                showUpgradeBanner(currentUser.name, subscribedPlan, syncData.monthly_limit);
                                 // Pulisce URL
                                 window.history.replaceState({}, '', '/');
                             }
@@ -2894,6 +2923,47 @@
                 setTimeout(tryLoad, 500);
             }
         })();
+
+        // ── Upgrade Banner ──────────────────────────────────────
+        let bannerTimer = null;
+
+        function showUpgradeBanner(name, plan, limit) {
+            const planNames = { base: 'Base', pro: 'Pro' };
+            const planName = planNames[plan] || plan;
+            const planDetails = {
+                base: '50 descrizioni al mese e fino a 5 foto',
+                pro: 'descrizioni illimitate e fino a 10 foto'
+            };
+            const details = planDetails[plan] || (limit + ' descrizioni al mese');
+
+            const textEl = document.getElementById('banner-text');
+            if (textEl) {
+                textEl.innerHTML = '<strong>Grazie ' + escapeHtml(name) + '!</strong> 🎉<br>Benvenuto nel piano <strong>' + planName + '</strong>. Ora hai ' + details + ' per descrizione.';
+            }
+
+            const banner = document.getElementById('upgrade-banner');
+            if (banner) {
+                banner.classList.add('show');
+                // Auto-dismiss dopo 8 secondi
+                if (bannerTimer) clearTimeout(bannerTimer);
+                bannerTimer = setTimeout(dismissBanner, 8000);
+            }
+        }
+
+        function dismissBanner() {
+            const banner = document.getElementById('upgrade-banner');
+            if (banner) banner.classList.remove('show');
+            if (bannerTimer) { clearTimeout(bannerTimer); bannerTimer = null; }
+        }
+
+        // Support escapeHtml if not already defined elsewhere
+        if (typeof escapeHtml !== 'function') {
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
     </script>
 </body>
 </html>
