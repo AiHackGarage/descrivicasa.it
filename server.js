@@ -1428,6 +1428,12 @@ app.get('/index.html', (req, res) => {
 app.get('/pricing', (req, res) => {
   res.sendFile(path.join(__dirname, 'pricing.html'));
 });
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'privacy.html'));
+});
+app.get('/termini', (req, res) => {
+  res.sendFile(path.join(__dirname, 'termini.html'));
+});
 app.get('/robots.txt', (req, res) => {
   res.sendFile(path.join(__dirname, 'robots.txt'));
 });

@@ -377,6 +377,46 @@
 
         .owner-actions { display: none; margin-top: 8px; }
         .owner-actions.visible { display: block; }
+
+        /* ── Cookie Banner ── */
+        .cookie-banner {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: white; z-index: 10000;
+            border-top: 1px solid #e8e8ed;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+            padding: 16px 24px;
+            display: flex; align-items: center; justify-content: center;
+            gap: 20px; flex-wrap: wrap;
+        }
+        .cookie-banner p {
+            color: #515154; margin: 0; max-width: 620px;
+            font-size: 0.9rem; line-height: 1.5;
+        }
+        .cookie-banner a {
+            color: #667eea; text-decoration: none; font-weight: 500;
+        }
+        .cookie-banner a:hover { text-decoration: underline; }
+        .cookie-buttons {
+            display: flex; gap: 10px; flex-shrink: 0;
+        }
+        .btn-cookie-accept {
+            padding: 8px 22px; background: #667eea; color: white;
+            border: none; border-radius: 20px; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600;
+            transition: background 0.2s; white-space: nowrap;
+        }
+        .btn-cookie-accept:hover { background: #5a6fd6; }
+        .btn-cookie-settings {
+            padding: 8px 22px; background: #f5f5f7; color: #1d1d1f;
+            border: 1px solid #d2d2d7; border-radius: 20px; cursor: pointer;
+            font-size: 0.85rem; transition: background 0.2s; white-space: nowrap;
+        }
+        .btn-cookie-settings:hover { background: #e8e8ed; }
+        @media (max-width: 500px) {
+            .cookie-banner { padding: 14px 16px; gap: 12px; }
+            .cookie-banner p { font-size: 0.82rem; text-align: center; }
+            .cookie-buttons { width: 100%; justify-content: center; }
+        }
     </style>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -951,5 +991,22 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
             .catch(err => alert('Errore: ' + err.message));
         }
     </script>
+<!-- ── Cookie Banner ── -->
+<div class="cookie-banner" id="cookie-banner" style="display:none;">
+    <p>🍪 Usiamo solo cookie tecnici essenziali per il funzionamento del sito. Nessuna profilazione, nessun tracciamento. Leggi la nostra <a href="/privacy">Privacy Policy</a> e i <a href="/termini">Termini di Servizio</a>.</p>
+    <div class="cookie-buttons">
+        <button class="btn-cookie-accept" onclick="acceptCookies()">Accetta</button>
+        <button class="btn-cookie-settings" onclick="acceptCookies()">Solo necessari</button>
+    </div>
+</div>
+<script>
+function acceptCookies() {
+    localStorage.setItem('cookie-consent', 'accepted');
+    document.getElementById('cookie-banner').style.display = 'none';
+}
+if (localStorage.getItem('cookie-consent') !== 'accepted') {
+    document.getElementById('cookie-banner').style.display = 'flex';
+}
+</script>
 </body>
 </html>
