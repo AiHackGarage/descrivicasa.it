@@ -22,6 +22,7 @@
     <meta name="twitter:title" content="">
     <meta name="twitter:description" content="">
     <meta name="twitter:image" content="">
+    <script type="application/ld+json" id="property-jsonld"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -853,6 +854,58 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
             return m[f] || f;
         }
 
+        /* ── JSON-LD RealEstateListing ───────────────────── */
+        function injectJsonLd(p, title, url) {
+            const ld = {
+                '@context': 'https://schema.org',
+                '@type': 'RealEstateListing',
+                name: title,
+                description: (p.description || '').replace(/[\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200),
+                url: url,
+                datePosted: new Date().toISOString().split('T')[0]
+            };
+
+            // Image
+            if (p.photos && p.photos[0]) {
+                ld.image = BASE + p.photos[0];
+            }
+
+            // Offer
+            ld.offers = {
+                '@type': 'Offer',
+                price: String(p.price || 0),
+                priceCurrency: 'EUR'
+            };
+            if (p.contract_type === 'rent') {
+                ld.offers.businessFunction = 'http://purl.org/goodrelations/v1#LeaseOut';
+            } else {
+                ld.offers.businessFunction = 'http://purl.org/goodrelations/v1#Sell';
+            }
+
+            // Address
+            const addr = {};
+            if (p.address) addr.streetAddress = p.address;
+            if (p.city) addr.addressLocality = p.city;
+            if (p.province) addr.addressRegion = p.province;
+            addr.addressCountry = 'IT';
+            if (Object.keys(addr).length > 1) ld.address = addr;
+
+            // Features
+            if (p.rooms) ld.numberOfRooms = parseInt(p.rooms);
+            if (p.bedrooms) ld.numberOfBedrooms = parseInt(p.bedrooms);
+            if (p.bathrooms) ld.numberOfBathroomsTotal = parseInt(p.bathrooms);
+            if (p.surface) {
+                ld.floorSize = {
+                    '@type': 'QuantitativeValue',
+                    value: parseFloat(p.surface),
+                    unitCode: 'MTK'
+                };
+            }
+
+            const el = document.getElementById('property-jsonld');
+            if (el) el.textContent = JSON.stringify(ld, null, 2);
+        }
+
         fetch('/api/p/' + uuid)
             .then(r => r.json())
             .then(data => {
@@ -879,6 +932,9 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
                     setMeta('meta[property="og:image"]', BASE + p.photos[0]);
                     setMeta('meta[name="twitter:image"]', BASE + p.photos[0]);
                 }
+
+                // JSON-LD structured data
+                injectJsonLd(p, title, url);
 
                 document.getElementById('prop-title').textContent = title;
                 const addrParts = [p.address, p.city, p.province].filter(Boolean);
