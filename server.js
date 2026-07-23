@@ -130,17 +130,26 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           );
         } catch (_) { /* colonne Stripe non ancora migrate */ }
 
-        // Downgrade a free se cancellato o insolvente
+        // Downgrade a free se cancellato o insolvente, ma solo se nessun'altra subscription è attiva
         if (sub.status === 'canceled' || sub.status === 'unpaid') {
-          try {
-            await pool.query(
-              'UPDATE users SET plan = "free", stripe_subscription_id = NULL WHERE stripe_customer_id = ?',
-              [customerId]
-            );
-          } catch (_) {
-            await pool.query('UPDATE users SET plan = "free" WHERE stripe_customer_id = ?', [customerId]);
+          const activeSubs = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'active',
+            limit: 1,
+          });
+          if (activeSubs.data.length === 0) {
+            try {
+              await pool.query(
+                'UPDATE users SET plan = "free", stripe_subscription_id = NULL WHERE stripe_customer_id = ?',
+                [customerId]
+              );
+            } catch (_) {
+              await pool.query('UPDATE users SET plan = "free" WHERE stripe_customer_id = ?', [customerId]);
+            }
+            console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
+          } else {
+            console.log(`ℹ️ Customer ${customerId} ha altre subscription attive, piano mantenuto`);
           }
-          console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
         } else if (sub.status === 'active') {
           try {
             await pool.query(
