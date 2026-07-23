@@ -873,7 +873,7 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
             // Offer
             ld.offers = {
                 '@type': 'Offer',
-                price: String(p.price || 0),
+                price: Number(p.price) || 0,
                 priceCurrency: 'EUR'
             };
             if (p.contract_type === 'rent') {
