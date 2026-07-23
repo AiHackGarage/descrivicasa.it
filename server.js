@@ -1406,6 +1406,34 @@ app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
   }
 });
 
+// Stripe Customer Portal: gestione abbonamento (cancella, aggiorna pagamento, fatture)
+app.post('/api/customer-portal', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: 'Stripe non configurato' });
+
+    const [users] = await pool.query(
+      'SELECT id, stripe_customer_id, plan FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
+
+    const user = users[0];
+    if (!user.stripe_customer_id) {
+      return res.status(400).json({ error: 'Nessun abbonamento attivo da gestire' });
+    }
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: user.stripe_customer_id,
+      return_url: req.body.returnUrl || 'https://descrivicasa.it/',
+    });
+
+    res.json({ url: portalSession.url });
+  } catch (err) {
+    console.error('Customer portal error:', err);
+    res.status(500).json({ error: 'Errore apertura portale: ' + err.message });
+  }
+});
+
 // ── Debug DB connection ───────────────────────────────────────────
 app.get('/api/debug-db', async (req, res) => {
   try {

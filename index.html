@@ -1186,7 +1186,8 @@
             </div>
         </div>
         <div class="profile-footer">
-            <a href="/pricing" class="profile-btn">Vedi piani ➤</a>
+            <a href="/pricing" class="profile-btn" id="profile-btn-pricing">Vedi piani ➤</a>
+            <button class="profile-btn profile-btn-outline" id="profile-btn-manage" style="display:none" onclick="openCustomerPortal()">⚙️ Gestisci abbonamento</button>
             <button class="profile-btn profile-btn-outline" onclick="logout(); toggleProfile();">Esci</button>
         </div>
         <div class="history-section" id="history-section">
@@ -1563,7 +1564,42 @@
                 const d = new Date(currentUser.created_at);
                 document.getElementById('profile-since').textContent = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
             } else { document.getElementById('profile-since').textContent = '—'; }
+            // Mostra/nascondi pulsante gestione abbonamento
+            const manageBtn = document.getElementById('profile-btn-manage');
+            const pricingBtn = document.getElementById('profile-btn-pricing');
+            if (currentUser.plan === 'base' || currentUser.plan === 'pro') {
+                if (manageBtn) manageBtn.style.display = '';
+                if (pricingBtn) pricingBtn.textContent = '🔁 Cambia piano';
+            } else {
+                if (manageBtn) manageBtn.style.display = 'none';
+                if (pricingBtn) pricingBtn.textContent = 'Vedi piani ➤';
+            }
             loadHistory();
+        }
+
+        async function openCustomerPortal() {
+            const btn = document.getElementById('profile-btn-manage');
+            if (btn) btn.textContent = '⏳ Apertura...';
+            try {
+                const resp = await fetch('/api/customer-portal', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken,
+                    },
+                    body: JSON.stringify({ returnUrl: window.location.origin + '/' }),
+                });
+                const data = await resp.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    alert(data.error || 'Errore apertura portale');
+                    if (btn) btn.textContent = '⚙️ Gestisci abbonamento';
+                }
+            } catch (err) {
+                alert('Errore: ' + err.message);
+                if (btn) btn.textContent = '⚙️ Gestisci abbonamento';
+            }
         }
 
         function loadHistory() {
