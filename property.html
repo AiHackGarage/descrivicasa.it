@@ -839,6 +839,47 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
             return labels[t] || t;
         }
 
+        /* ── Meta Description strutturata ──────────────── */
+        function buildMetaDescription(p) {
+            const typeLabel = propertyTypeLabel(p.property_type);
+            const contract = p.contract_type === 'rent' ? 'affitto' : 'vendita';
+            const priceLabel = p.price ? ' — ' + formatPrice(p.price) : '';
+            const loc = p.city ? ' a ' + p.city : '';
+
+            // Data prefix: "Appartamento in vendita a Roma — € 250.000"
+            let prefix = typeLabel + ' in ' + contract + loc + priceLabel;
+
+            // Features: "3 locali, 2 bagni, 90 mq"
+            const feats = [];
+            if (p.rooms) feats.push(p.rooms + ' locali');
+            if (p.bathrooms) feats.push(p.bathrooms + ' bagni');
+            if (p.surface) feats.push(parseFloat(p.surface) + ' mq');
+            if (feats.length) prefix += '. ' + feats.join(', ') + '.';
+
+            // If we already have enough chars, stop here
+            if (prefix.length >= 140) return prefix.slice(0, 160);
+
+            // Append description excerpt (cleaned of emoji/newlines)
+            if (p.description) {
+                let clean = p.description
+                    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2500}-\u{25FF}\u{2B00}-\u{2BFF}]/gu, '')
+                    .replace(/^[\s,.\-:;]+/, '')
+                    .replace(/\n+/g, '. ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const remaining = 155 - prefix.length;
+                if (remaining > 20) {
+                    let excerpt = clean.slice(0, remaining);
+                    const lastSpace = excerpt.lastIndexOf(' ');
+                    if (lastSpace > 20) excerpt = excerpt.slice(0, lastSpace);
+                    prefix += ' ' + excerpt;
+                }
+            }
+
+            return prefix.slice(0, 160);
+        }
+
         function translateHeating(h) {
             const m = { autonomous: 'Autonomo', centralized: 'Centralizzato', underfloor: 'Radiante', wood: 'Stufa legna' };
             return m[h] || h;
@@ -860,7 +901,9 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
                 '@context': 'https://schema.org',
                 '@type': 'RealEstateListing',
                 name: title,
-                description: (p.description || '').replace(/[\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200),
+                description: (p.description || '')
+                    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2500}-\u{25FF}\u{2B00}-\u{2BFF}]/gu, '')
+                    .replace(/[\n\r]+/g, '. ').replace(/\s+/g, ' ').trim().slice(0, 300),
                 url: url,
                 datePosted: new Date().toISOString().split('T')[0]
             };
@@ -917,7 +960,7 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
 
                 // SEO meta
                 const title = p.title || propertyTypeLabel(p.property_type) + (p.city ? ' in ' + p.city : '');
-                const desc = p.description ? p.description.slice(0, 200) : '';
+                const desc = buildMetaDescription(p);
                 const url = window.location.href;
                 document.title = title + ' — DescriviCasa.it';
 
