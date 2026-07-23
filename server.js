@@ -1408,6 +1408,20 @@ app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
       return res.json({ plan: requestedPlan, synced: true, monthly_limit: limit, remaining: limit });
     }
 
+    // Nessuna subscription attiva: downgrade a free se l'utente è su un piano a pagamento
+    if (user.plan !== 'free') {
+      try {
+        await pool.query(
+          'UPDATE users SET plan = "free", stripe_subscription_id = NULL, subscription_status = NULL WHERE id = ?',
+          [user.id]
+        );
+      } catch (_) {
+        await pool.query('UPDATE users SET plan = "free" WHERE id = ?', [user.id]);
+      }
+      console.log(`⬇️ User ${user.id} downgraded to free (no active subscriptions)`);
+      return res.json({ plan: 'free', synced: true, monthly_limit: 3, remaining: 3 });
+    }
+
     return res.json({ plan: user.plan, synced: false, reason: 'no_active_subscription' });
   } catch (err) {
     console.error('Sync subscription error:', err);
