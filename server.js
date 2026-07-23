@@ -1563,9 +1563,62 @@ app.get('/termini', (req, res) => {
 app.get('/robots.txt', (req, res) => {
   res.sendFile(path.join(__dirname, 'robots.txt'));
 });
-app.get('/sitemap.xml', (req, res) => {
-  res.sendFile(path.join(__dirname, 'sitemap.xml'));
+
+// Sitemap dinamica — elenca tutte le proprietà pubbliche
+function slugify(text) {
+  return (text || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 80);
+}
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const base = 'https://descrivicasa.it';
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+    // Static pages
+    xml += '  <url>\n';
+    xml += '    <loc>' + base + '/</loc>\n';
+    xml += '    <changefreq>weekly</changefreq>\n';
+    xml += '    <priority>1.0</priority>\n';
+    xml += '  </url>\n';
+    xml += '  <url>\n';
+    xml += '    <loc>' + base + '/pricing</loc>\n';
+    xml += '    <changefreq>monthly</changefreq>\n';
+    xml += '    <priority>0.8</priority>\n';
+    xml += '  </url>\n';
+
+    // Dynamic: public properties
+    if (pool) {
+      const [rows] = await pool.query(
+        "SELECT uuid, title, updated_at FROM properties WHERE is_public = TRUE AND status = 'published' ORDER BY updated_at DESC"
+      );
+      for (const p of rows) {
+        const slug = slugify(p.title);
+        const loc = slug ? base + '/p/' + p.uuid + '/' + slug : base + '/p/' + p.uuid;
+        const lastmod = p.updated_at ? new Date(p.updated_at).toISOString().split('T')[0] : '';
+        xml += '  <url>\n';
+        xml += '    <loc>' + loc + '</loc>\n';
+        if (lastmod) xml += '    <lastmod>' + lastmod + '</lastmod>\n';
+        xml += '    <changefreq>weekly</changefreq>\n';
+        xml += '    <priority>0.7</priority>\n';
+        xml += '  </url>\n';
+      }
+    }
+
+    xml += '</urlset>';
+    res.type('application/xml');
+    res.send(xml);
+  } catch (err) {
+    console.error('Sitemap error:', err);
+    res.status(500).send('Internal Server Error');
+  }
 });
+
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'favicon.ico'));
 });
