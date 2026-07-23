@@ -142,12 +142,24 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           }
           console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
         } else if (sub.status === 'active') {
+          // Aggiorna subscription_id
           try {
             await pool.query(
               'UPDATE users SET stripe_subscription_id = ? WHERE stripe_customer_id = ?',
               [sub.id, customerId]
             );
           } catch (_) { /* colonna stripe_subscription_id non ancora migrata */ }
+
+          // Rileva cambio piano (es. downgrade programmato che scatta al rinnovo)
+          const metaPlan = sub.metadata?.plan;
+          if (metaPlan && ['base', 'pro'].includes(metaPlan)) {
+            try {
+              await pool.query(
+                'UPDATE users SET plan = ? WHERE stripe_customer_id = ? AND plan != ?',
+                [metaPlan, customerId, metaPlan]
+              );
+            } catch (_) { /* colonne mancanti */ }
+          }
         }
       }
     }
@@ -1324,26 +1336,44 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
           return res.status(400).json({ error: `Sei già sul piano ${plan === 'base' ? 'Base' : 'Pro'}.` });
         }
 
-        // Upgrade o downgrade: aggiorna la subscription esistente
+        // Determina se è upgrade o downgrade
+        const currentLimit = PLAN_LIMITS[user.current_plan] || 0;
+        const newLimit = PLAN_LIMITS[plan] || 0;
+        const isUpgrade = newLimit > currentLimit;
+
+        // Aggiorna la subscription esistente
         const updatedSub = await stripe.subscriptions.update(sub.id, {
           items: [{ id: sub.items.data[0].id, price: priceId }],
-          proration_behavior: 'always_invoice',
+          proration_behavior: isUpgrade ? 'always_invoice' : 'none',
           metadata: { userId: String(req.user.id), plan },
         });
 
-        // Aggiorna piano nel DB
-        try {
-          await pool.query(
-            'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
-            [plan, sub.id, updatedSub.status, req.user.id]
-          );
-        } catch (_) {
-          await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, req.user.id]);
+        if (isUpgrade) {
+          // Upgrade: aggiorna piano nel DB subito
+          try {
+            await pool.query(
+              'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
+              [plan, sub.id, updatedSub.status, req.user.id]
+            );
+          } catch (_) {
+            await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, req.user.id]);
+          }
+          const limit = newLimit;
+          console.log(`⬆️ User ${req.user.id} upgraded from ${user.current_plan} to ${plan}`);
+          return res.json({ upgraded: true, plan, monthly_limit: limit, remaining: limit });
+        } else {
+          // Downgrade: piano attivo fino a scadenza, il cambio avviene al prossimo rinnovo
+          console.log(`🔜 User ${req.user.id} downgrade scheduled: ${user.current_plan} → ${plan} (al prossimo rinnovo)`);
+          return res.json({
+            upgraded: false,
+            scheduled: true,
+            plan: user.current_plan,      // piano attuale (ancora attivo)
+            future_plan: plan,            // piano che partirà al rinnovo
+            monthly_limit: currentLimit,
+            remaining: currentLimit,
+            message: `Passaggio a ${plan === 'base' ? 'Base' : 'Pro'} programmato. Il tuo piano ${user.current_plan === 'pro' ? 'Pro' : 'Base'} resta attivo fino alla scadenza.`
+          });
         }
-
-        const limit = PLAN_LIMITS[plan] || 3;
-        console.log(`🔄 User ${req.user.id} switched from ${user.current_plan} to ${plan}`);
-        return res.json({ upgraded: true, plan, monthly_limit: limit, remaining: limit });
       }
     }
 

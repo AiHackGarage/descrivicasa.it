@@ -583,7 +583,7 @@
                     // Primo acquisto: redirect a Stripe Checkout
                     window.location.href = data.url;
                 } else if (data.upgraded) {
-                    // Upgrade/downgrade diretto: aggiorna UI e mostra banner
+                    // Upgrade diretto: aggiorna UI e mostra banner
                     if (currentUser) {
                         currentUser.plan = data.plan;
                         currentUser.monthly_limit = data.monthly_limit;
@@ -592,6 +592,11 @@
                         if (typeof navigateTo === 'function') navigateTo('dashboard');
                     }
                     alert('✅ Passato al piano ' + (data.plan === 'pro' ? 'Pro' : 'Base') + '!');
+                    if (typeof loadDashboard === 'function') setTimeout(loadDashboard, 300);
+                } else if (data.scheduled) {
+                    // Downgrade programmato: piano attuale resta attivo
+                    alert('📅 ' + (data.message || 'Passaggio programmato. Il tuo piano attuale resta attivo fino alla scadenza.'));
+                    if (typeof navigateTo === 'function') navigateTo('dashboard');
                     if (typeof loadDashboard === 'function') setTimeout(loadDashboard, 300);
                 } else {
                     alert(data.error || 'Errore creazione pagamento');
