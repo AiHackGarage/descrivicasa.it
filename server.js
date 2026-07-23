@@ -150,15 +150,28 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             );
           } catch (_) { /* colonna stripe_subscription_id non ancora migrata */ }
 
-          // Rileva cambio piano (es. downgrade programmato che scatta al rinnovo)
-          const metaPlan = sub.metadata?.plan;
-          if (metaPlan && ['base', 'pro'].includes(metaPlan)) {
-            try {
-              await pool.query(
-                'UPDATE users SET plan = ? WHERE stripe_customer_id = ? AND plan != ?',
-                [metaPlan, customerId, metaPlan]
+          // Rileva cambio piano effettivo (quando il price cambia, es. downgrade a scadenza)
+          const priceId = sub.items?.data?.[0]?.price?.id;
+          if (priceId) {
+            const planFromPrice = priceId === STRIPE_PRICE_ID_PRO ? 'pro'
+                                : priceId === STRIPE_PRICE_ID_BASE ? 'base'
+                                : null;
+            if (planFromPrice) {
+              // Recupera piano corrente dal DB
+              const [users] = await pool.query(
+                'SELECT plan FROM users WHERE stripe_customer_id = ?',
+                [customerId]
               );
-            } catch (_) { /* colonne mancanti */ }
+              if (users.length > 0 && users[0].plan !== planFromPrice) {
+                try {
+                  await pool.query(
+                    'UPDATE users SET plan = ? WHERE stripe_customer_id = ?',
+                    [planFromPrice, customerId]
+                  );
+                  console.log(`🔄 Customer ${customerId} plan updated to ${planFromPrice} (price change detected)`);
+                } catch (_) { /* skip */ }
+              }
+            }
           }
         }
       }
