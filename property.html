@@ -7,12 +7,21 @@
     <link rel="apple-touch-icon" href="/favicon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Immobile — DescriviCasa.it</title>
+    <meta name="description" content="">
     <meta name="robots" content="index, follow">
+    <link rel="canonical" href="">
+
     <meta property="og:type" content="website">
+    <meta property="og:url" content="">
     <meta property="og:site_name" content="DescriviCasa.it">
     <meta property="og:title" content="">
-    <meta name="description" content="">
+    <meta property="og:description" content="">
+    <meta property="og:image" content="">
+
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:image" content="">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -567,7 +576,7 @@
         </div>  <!-- /layout -->
 
         <div class="footer">
-            DescriviCasa.it &copy; 2026 &mdash; Annunci immobiliari professionali con AI
+            DescriviCasa.it &copy; 2026 &mdash; Descrizioni immobiliari professionali
         </div>
     </div><!-- /property-content -->
 
@@ -788,6 +797,31 @@ const pathParts = window.location.pathname.split('/').filter(Boolean);
 const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
         const BASE = 'https://descrivicasa.it';
 
+        function setMeta(selector, value) {
+            let el = document.querySelector(selector);
+            if (!el) {
+                // create if selector is for meta or link
+                if (selector.startsWith('meta[')) {
+                    el = document.createElement('meta');
+                    const attrMatch = selector.match(/meta\[(.*?)=/);
+                    if (attrMatch) {
+                        const attr = attrMatch[1];
+                        if (attr === 'property') el.setAttribute('property', '');
+                        else if (attr === 'name') el.setAttribute('name', '');
+                    }
+                    document.head.appendChild(el);
+                } else if (selector.startsWith('link[')) {
+                    el = document.createElement('link');
+                    el.setAttribute('rel', 'canonical');
+                    document.head.appendChild(el);
+                }
+            }
+            if (el) {
+                if (el.tagName === 'LINK') el.href = value;
+                else el.content = value;
+            }
+        }
+
         function formatPrice(price, contract) {
             if (!price) return '';
             const n = Number(price).toLocaleString('it-IT');
@@ -830,16 +864,20 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
 
                 // SEO meta
                 const title = p.title || propertyTypeLabel(p.property_type) + (p.city ? ' in ' + p.city : '');
+                const desc = p.description ? p.description.slice(0, 200) : '';
+                const url = window.location.href;
                 document.title = title + ' — DescriviCasa.it';
-                const ogTitle = document.querySelector('meta[property="og:title"]');
-                if (ogTitle) ogTitle.content = title;
-                const descMeta = document.querySelector('meta[name="description"]');
-                if (descMeta && p.description) descMeta.content = p.description.slice(0, 200);
+
+                setMeta('meta[property="og:title"]', title);
+                setMeta('meta[property="og:description"]', desc);
+                setMeta('meta[property="og:url"]', url);
+                setMeta('meta[name="description"]', desc);
+                setMeta('meta[name="twitter:title"]', title);
+                setMeta('meta[name="twitter:description"]', desc);
+                setMeta('link[rel="canonical"]', url);
                 if (p.photos && p.photos[0]) {
-                    const m = document.createElement('meta');
-                    m.setAttribute('property', 'og:image');
-                    m.content = BASE + p.photos[0];
-                    document.head.appendChild(m);
+                    setMeta('meta[property="og:image"]', BASE + p.photos[0]);
+                    setMeta('meta[name="twitter:image"]', BASE + p.photos[0]);
                 }
 
                 document.getElementById('prop-title').textContent = title;

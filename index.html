@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DescriviCasa.it — Descrizioni Immobiliari Professionali con AI</title>
-    <meta name="description" content="Carica le foto di un immobile e ottieni descrizioni professionali in italiano per annunci su Idealista, Immobiliare.it e Casa.it. Generato con AI in pochi secondi.">
-    <meta name="keywords" content="descrizione immobiliare, agenzia immobiliare, AI, intelligenza artificiale, vendita casa, annuncio immobiliare, copywriting immobiliare">
+    <title>DescriviCasa.it — Descrizioni Immobiliari Professionali in Pochi Secondi</title>
+    <meta name="description" content="Carica le foto di un immobile e ottieni descrizioni professionali in italiano per annunci su Idealista, Immobiliare.it e Casa.it. Veloce, professionale, pronto in secondi.">
+    <meta name="keywords" content="descrizione immobiliare, agenzia immobiliare, vendita casa, annuncio immobiliare, copywriting immobiliare, descrizioni professionali">
     <meta name="author" content="DescriviCasa.it">
     <meta name="robots" content="index, follow">
     <link rel="icon" type="image/png" href="/favicon.png">
@@ -16,16 +16,17 @@
     <!-- Open Graph / Social -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://descrivicasa.it/">
-    <meta property="og:title" content="DescriviCasa.it — Descrizioni Immobiliari con AI">
+    <meta property="og:title" content="DescriviCasa.it — Descrizioni Immobiliari in Pochi Secondi">
     <meta property="og:description" content="Carica le foto e ottieni descrizioni professionali in italiano per i tuoi annunci immobiliari.">
     <meta property="og:site_name" content="DescriviCasa.it">
-    
+    <meta property="og:image" content="https://descrivicasa.it/favicon.png">
+
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="DescriviCasa.it — Descrizioni Immobiliari con AI">
+    <meta name="twitter:title" content="DescriviCasa.it — Descrizioni Immobiliari in Pochi Secondi">
     <meta name="twitter:description" content="Carica le foto e ottieni descrizioni professionali in italiano per i tuoi annunci immobiliari.">
+    <meta name="twitter:image" content="https://descrivicasa.it/favicon.png">
 
-    <!-- Structured Data -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -33,7 +34,7 @@
         "name": "DescriviCasa.it",
         "operatingSystem": "Web",
         "applicationCategory": "BusinessApplication",
-        "description": "Generatore di descrizioni immobiliari professionali con intelligenza artificiale.",
+        "description": "Generatore di descrizioni immobiliari professionali. Veloce, professionale, pronto in secondi.",
         "url": "https://descrivicasa.it",
         "inLanguage": "it-IT",
         "offers": [
@@ -1277,7 +1278,7 @@
         <div class="view active" id="view-landing">
             <div class="landing-header">
                 <h1>🏠 DescriviCasa.it</h1>
-                <p>Descrizioni immobiliari professionali generate con AI</p>
+                <p>Descrizioni immobiliari professionali in pochi secondi</p>
             </div>
             <div class="landing-cta">
                 <button class="btn-cta" onclick="showModal('register')">✨ Inizia ora gratuitamente</button>
@@ -2777,7 +2778,7 @@
                 const uuid = createData.uuid;
                 if (!uuid) throw new Error('UUID non ricevuto');
 
-                if (pEl) pEl.textContent = 'Generazione descrizione con AI...';
+                if (pEl) pEl.textContent = 'Generazione descrizione in corso...';
 
                 const listRes = await fetch('/api/properties', {
                     headers: { 'Authorization': 'Bearer ' + authToken }
