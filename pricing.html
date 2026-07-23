@@ -580,7 +580,19 @@
                 if (targetBtn) targetBtn.textContent = 'Inizia Ora';
 
                 if (data.url) {
+                    // Primo acquisto: redirect a Stripe Checkout
                     window.location.href = data.url;
+                } else if (data.upgraded) {
+                    // Upgrade/downgrade diretto: aggiorna UI e mostra banner
+                    if (currentUser) {
+                        currentUser.plan = data.plan;
+                        currentUser.monthly_limit = data.monthly_limit;
+                        currentUser.remaining = data.remaining;
+                        if (typeof updateUI === 'function') updateUI();
+                        if (typeof navigateTo === 'function') navigateTo('dashboard');
+                    }
+                    alert('✅ Passato al piano ' + (data.plan === 'pro' ? 'Pro' : 'Base') + '!');
+                    if (typeof loadDashboard === 'function') setTimeout(loadDashboard, 300);
                 } else {
                     alert(data.error || 'Errore creazione pagamento');
                 }

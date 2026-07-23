@@ -130,26 +130,17 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           );
         } catch (_) { /* colonne Stripe non ancora migrate */ }
 
-        // Downgrade a free se cancellato o insolvente, ma solo se nessun'altra subscription è attiva
+        // Downgrade a free se cancellato o insolvente
         if (sub.status === 'canceled' || sub.status === 'unpaid') {
-          const activeSubs = await stripe.subscriptions.list({
-            customer: customerId,
-            status: 'active',
-            limit: 1,
-          });
-          if (activeSubs.data.length === 0) {
-            try {
-              await pool.query(
-                'UPDATE users SET plan = "free", stripe_subscription_id = NULL WHERE stripe_customer_id = ?',
-                [customerId]
-              );
-            } catch (_) {
-              await pool.query('UPDATE users SET plan = "free" WHERE stripe_customer_id = ?', [customerId]);
-            }
-            console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
-          } else {
-            console.log(`ℹ️ Customer ${customerId} ha altre subscription attive, piano mantenuto`);
+          try {
+            await pool.query(
+              'UPDATE users SET plan = "free", stripe_subscription_id = NULL WHERE stripe_customer_id = ?',
+              [customerId]
+            );
+          } catch (_) {
+            await pool.query('UPDATE users SET plan = "free" WHERE stripe_customer_id = ?', [customerId]);
           }
+          console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
         } else if (sub.status === 'active') {
           try {
             await pool.query(
@@ -1292,7 +1283,7 @@ app.get('/api/stripe-public-key', (req, res) => {
   res.json({ publicKey: STRIPE_PUBLIC_KEY });
 });
 
-// Crea una sessione di checkout Stripe
+// Crea una sessione di checkout Stripe (o fa upgrade/downgrade se subscription già attiva)
 app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: 'Stripe non configurato. Controlla STRIPE_SECRET_KEY nel .env' });
@@ -1307,7 +1298,7 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
       return res.status(500).json({ error: `Price ID non configurato per il piano ${plan}.` });
     }
 
-    // Recupera o crea il customer Stripe
+    // Recupera utente + eventuale customer Stripe
     const [users] = await pool.query(
       'SELECT id, email, name, stripe_customer_id, plan AS current_plan FROM users WHERE id = ?',
       [req.user.id]
@@ -1317,6 +1308,46 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
     const user = users[0];
     let customerId = user.stripe_customer_id;
 
+    // Se l'utente ha già un customer Stripe, cerca subscription attiva
+    if (customerId) {
+      const subs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'active',
+        limit: 1,
+      });
+
+      if (subs.data.length > 0) {
+        const sub = subs.data[0];
+
+        // Stesso piano? Nulla da fare
+        if (user.current_plan === plan) {
+          return res.status(400).json({ error: `Sei già sul piano ${plan === 'base' ? 'Base' : 'Pro'}.` });
+        }
+
+        // Upgrade o downgrade: aggiorna la subscription esistente
+        const updatedSub = await stripe.subscriptions.update(sub.id, {
+          items: [{ id: sub.items.data[0].id, price: priceId }],
+          proration_behavior: 'always_invoice',
+          metadata: { userId: String(req.user.id), plan },
+        });
+
+        // Aggiorna piano nel DB
+        try {
+          await pool.query(
+            'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
+            [plan, sub.id, updatedSub.status, req.user.id]
+          );
+        } catch (_) {
+          await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, req.user.id]);
+        }
+
+        const limit = PLAN_LIMITS[plan] || 3;
+        console.log(`🔄 User ${req.user.id} switched from ${user.current_plan} to ${plan}`);
+        return res.json({ upgraded: true, plan, monthly_limit: limit, remaining: limit });
+      }
+    }
+
+    // Primo acquisto (o ri-acquisto dopo cancellazione): crea customer se serve
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
@@ -1327,6 +1358,7 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
       await pool.query('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customerId, user.id]);
     }
 
+    // Crea sessione checkout per nuovo abbonamento
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
