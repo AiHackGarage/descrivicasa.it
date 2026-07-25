@@ -107,8 +107,8 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         // Prima prova UPDATE completo (con colonne Stripe se esistono)
         try {
           await pool.query(
-            'UPDATE users SET plan = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
-            [plan, session.subscription || null, 'active', userId]
+            'UPDATE users SET plan = ?, stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
+            [plan, session.customer || null, session.subscription || null, 'active', userId]
           );
         } catch (_) {
           // Fallback: solo piano (colonne Stripe non ancora migrate)
