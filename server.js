@@ -194,6 +194,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // CSP via header + meta tag (Hostinger proxy overwrites Content-Security-Policy)
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; frame-src https://js.stripe.com https://accounts.google.com; connect-src 'self' https://api.openrouter.ai https://api.stripe.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com;");
   next();
 });
@@ -1433,10 +1434,11 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
       const customer = await stripe.customers.create({
         email: user.email,
         name: user.name,
-        metadata: { userId: String(user.id) },
+        metadata: { userId: String(req.user.id) },
       });
       customerId = customer.id;
-      await pool.query('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customerId, user.id]);
+      await pool.query('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customerId, req.user.id]);
+      logger.info(`✅ Stripe customer created: ${customerId} for user ${req.user.id}`);
     }
 
     // Crea sessione checkout per nuovo abbonamento
