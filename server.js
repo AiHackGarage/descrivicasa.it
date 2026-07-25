@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const rateLimit = require('express-rate-limit');
 const PDFDocument = require('pdfkit');
+const logger = require('pino')({ level: process.env.LOG_LEVEL || 'info' });
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 // Project-level .env overrides (e.g., Stripe test keys)
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -25,9 +26,9 @@ const STRIPE_PUBLIC_KEY = process.env.STRIPE_PUBLIC_KEY_PROVA || process.env.STR
 let stripe = null;
 if (STRIPE_SECRET_KEY) {
   stripe = require('stripe')(STRIPE_SECRET_KEY);
-  console.log('✅ Stripe initialized');
+  logger.info('✅ Stripe initialized');
 } else {
-  console.log('⚠️  Stripe non configurato (manca STRIPE_SECRET_KEY)');
+  logger.info('⚠️  Stripe non configurato (manca STRIPE_SECRET_KEY)');
 }
 const PORT = process.env.PORT || 8000;
 
@@ -56,7 +57,7 @@ const pool = mysql.createPool(DB_CONFIG);
 // ── JWT ────────────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error('❌ JWT_SECRET non impostato nelle variabili d\'ambiente. Il server non può avviarsi.');
+  logger.error('❌ JWT_SECRET non impostato nelle variabili d\'ambiente. Il server non può avviarsi.');
   process.exit(1);
 }
 const JWT_EXPIRES = '30d';
@@ -91,7 +92,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error('Stripe webhook signature error:', err.message);
+    logger.error('Stripe webhook signature error:', err.message);
     return res.status(400).json({ error: `Firma webhook non valida` });
   }
 
@@ -113,7 +114,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           // Fallback: solo piano (colonne Stripe non ancora migrate)
           await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, userId]);
         }
-        console.log(`✅ User ${userId} upgraded to ${plan}`);
+        logger.info(`✅ User ${userId} upgraded to ${plan}`);
       }
     }
 
@@ -140,7 +141,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           } catch (_) {
             await pool.query('UPDATE users SET plan = "free" WHERE stripe_customer_id = ?', [customerId]);
           }
-          console.log(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
+          logger.info(`⬇️ Customer ${customerId} downgraded to free (status: ${sub.status})`);
         } else if (sub.status === 'active') {
           // Aggiorna subscription_id
           try {
@@ -168,7 +169,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
                     'UPDATE users SET plan = ? WHERE stripe_customer_id = ?',
                     [planFromPrice, customerId]
                   );
-                  console.log(`🔄 Customer ${customerId} plan updated to ${planFromPrice} (price change detected)`);
+                  logger.info(`🔄 Customer ${customerId} plan updated to ${planFromPrice} (price change detected)`);
                 } catch (_) { /* skip */ }
               }
             }
@@ -177,7 +178,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       }
     }
   } catch (err) {
-    console.error('Stripe webhook processing error:', err);
+    logger.error('Stripe webhook processing error:', err);
     return res.status(500).json({ error: 'Errore processamento webhook' });
   }
 
@@ -345,7 +346,7 @@ async function initDatabase() {
       )
     `);
     conn.release();
-    console.log('✅ Database tables ready');
+    logger.info('✅ Database tables ready');
 
     // Run migrations: add agent columns if missing
     try {
@@ -355,15 +356,15 @@ async function initDatabase() {
         await migrationConn.query("ALTER TABLE properties ADD COLUMN agent_name VARCHAR(200) DEFAULT NULL AFTER condo_fees");
         await migrationConn.query("ALTER TABLE properties ADD COLUMN agent_phone VARCHAR(50) DEFAULT NULL AFTER agent_name");
         await migrationConn.query("ALTER TABLE properties ADD COLUMN agent_email VARCHAR(255) DEFAULT NULL AFTER agent_phone");
-        console.log('✅ Migration: agent columns added');
+        logger.info('✅ Migration: agent columns added');
       }
       migrationConn.release();
     } catch (migErr) {
-      console.error('⚠️  Migration warning:', migErr.message);
+      logger.error('⚠️  Migration warning:', migErr.message);
     }
   } catch (err) {
-    console.error('❌ Database init error:', err.message);
-    console.log('⚠️  Server will continue without database');
+    logger.error('❌ Database init error:', err.message);
+    logger.info('⚠️  Server will continue without database');
   }
 }
 
@@ -509,7 +510,7 @@ app.post('/api/register', authLimiter, async (req, res) => {
     const token = jwt.sign({ id: result.insertId, email, name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ token, user: { id: result.insertId, name, email, plan: 'free', monthly_limit: PLAN_LIMITS.free, remaining: PLAN_LIMITS.free } });
   } catch (err) {
-    console.error('Register error:', err);
+    logger.error('Register error:', err);
     res.status(500).json({ error: 'Errore durante la registrazione' });
   }
 });
@@ -542,7 +543,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
     const remaining = Math.max(0, limit - (user.monthly_generations || 0));
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, plan: user.plan, monthly_limit: limit, remaining } });
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error('Login error:', err);
     res.status(500).json({ error: 'Errore durante il login' });
   }
 });
@@ -590,7 +591,7 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
     const remaining = Math.max(0, limit - (user.monthly_generations || 0));
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar || picture, plan: user.plan, monthly_limit: limit, remaining } });
   } catch (err) {
-    console.error('Google auth error:', err);
+    logger.error('Google auth error:', err);
     res.status(500).json({ error: 'Errore autenticazione Google' });
   }
 });
@@ -744,7 +745,7 @@ app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), async
     await pool.query(
       'INSERT INTO generations (user_id, description, image_urls, model) VALUES (?, ?, ?, ?)',
       [req.user.id, finalDescription, JSON.stringify(imageUrls), result.model || '']
-    ).catch(err => console.error('Save history error:', err.message));
+    ).catch(err => logger.error('Save history error:', err.message));
 
     res.json({
       description: finalDescription,
@@ -754,7 +755,7 @@ app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), async
       remaining: limitCheck.remaining - 1,
     });
   } catch (err) {
-    console.error('Analyze error:', err);
+    logger.error('Analyze error:', err);
     res.status(500).json({ error: 'Errore interno' });
   }
 });
@@ -816,7 +817,7 @@ app.post('/api/chat', aiLimiter, async (req, res) => {
     const data = await resp.json();
     res.json({ reply: data.choices[0].message.content, model: data.model });
   } catch (err) {
-    console.error('Chat error:', err);
+    logger.error('Chat error:', err);
     res.status(500).json({ error: 'Errore del chatbot' });
   }
 });
@@ -917,7 +918,7 @@ app.post('/api/properties', authMiddleware, upload.array('files', 10), async (re
 
     res.status(201).json({ uuid, message: 'Immobile creato' });
   } catch (err) {
-    console.error('Create property error:', err);
+    logger.error('Create property error:', err);
     res.status(500).json({ error: 'Errore creazione immobile' });
   }
 });
@@ -1030,7 +1031,7 @@ app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async 
 
     res.json({ message: 'Immobile aggiornato' });
   } catch (err) {
-    console.error('Update property error:', err);
+    logger.error('Update property error:', err);
     res.status(500).json({ error: 'Errore aggiornamento' });
   }
 });
@@ -1123,7 +1124,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
       uuid: property.uuid,
     });
   } catch (err) {
-    console.error('Generate error:', err);
+    logger.error('Generate error:', err);
     res.status(500).json({ error: 'Errore generazione' });
   }
 });
@@ -1313,7 +1314,7 @@ app.get('/api/health', (req, res) => {
 
 // ── Global error handler ──────────────────────────────────────────
 app.use((err, req, res, _next) => {
-  console.error('Unhandled error:', err.stack || err.message);
+  logger.error('Unhandled error:', err.stack || err.message);
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Richiesta non valida' });
   }
@@ -1409,11 +1410,11 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
             await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, req.user.id]);
           }
           const limit = newLimit;
-          console.log(`⬆️ User ${req.user.id} upgraded from ${user.current_plan} to ${plan}`);
+          logger.info(`⬆️ User ${req.user.id} upgraded from ${user.current_plan} to ${plan}`);
           return res.json({ upgraded: true, plan, monthly_limit: limit, remaining: limit });
         } else {
           // Downgrade: piano attivo fino a scadenza, il cambio avviene al prossimo rinnovo
-          console.log(`🔜 User ${req.user.id} downgrade scheduled: ${user.current_plan} → ${plan} (al prossimo rinnovo)`);
+          logger.info(`🔜 User ${req.user.id} downgrade scheduled: ${user.current_plan} → ${plan} (al prossimo rinnovo)`);
           return res.json({
             upgraded: false,
             scheduled: true,
@@ -1452,7 +1453,7 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    console.error('Stripe checkout error:', err);
+    logger.error('Stripe checkout error:', err);
     res.status(500).json({ error: 'Errore creazione sessione di pagamento' });
   }
 });
@@ -1530,13 +1531,13 @@ app.post('/api/sync-subscription', authMiddleware, async (req, res) => {
       } catch (_) {
         await pool.query('UPDATE users SET plan = "free" WHERE id = ?', [user.id]);
       }
-      console.log(`⬇️ User ${user.id} downgraded to free (no active subscriptions)`);
+      logger.info(`⬇️ User ${user.id} downgraded to free (no active subscriptions)`);
       return res.json({ plan: 'free', synced: true, monthly_limit: 3, remaining: 3 });
     }
 
     return res.json({ plan: user.plan, synced: false, reason: 'no_active_subscription' });
   } catch (err) {
-    console.error('Sync subscription error:', err);
+    logger.error('Sync subscription error:', err);
     res.status(500).json({ error: 'Errore sincronizzazione abbonamento' });
   }
 });
@@ -1564,7 +1565,7 @@ app.post('/api/customer-portal', authMiddleware, async (req, res) => {
 
     res.json({ url: portalSession.url });
   } catch (err) {
-    console.error('Customer portal error:', err);
+    logger.error('Customer portal error:', err);
     res.status(500).json({ error: 'Errore apertura portale' });
   }
 });
@@ -1651,7 +1652,7 @@ app.get('/sitemap.xml', async (req, res) => {
     res.type('application/xml');
     res.send(xml);
   } catch (err) {
-    console.error('Sitemap error:', err);
+    logger.error('Sitemap error:', err);
     res.status(500).send('Internal Server Error');
   }
 });
@@ -1665,7 +1666,7 @@ app.get('/favicon.png', (req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`🚀 DescriviCasa running on http://0.0.0.0:${PORT}`);
+  logger.info(`🚀 DescriviCasa running on http://0.0.0.0:${PORT}`);
   await initDatabase();
   cleanupOldFiles();
 });
@@ -1674,23 +1675,23 @@ app.listen(PORT, '0.0.0.0', async () => {
 const CLEANUP_INTERVAL_MS = 30 * 60 * 1000;
 const FILE_MAX_AGE_MS = 4 * 60 * 60 * 1000;
 
-function cleanupOldFiles() {
-  fs.readdir(UPLOAD_DIR, (err, files) => {
-    if (err) return;
+async function cleanupOldFiles() {
+  try {
+    const files = await fs.promises.readdir(UPLOAD_DIR);
     const now = Date.now();
     let deleted = 0;
     for (const file of files) {
       const fp = path.join(UPLOAD_DIR, file);
       try {
-        const stat = fs.statSync(fp);
+        const stat = await fs.promises.stat(fp);
         if (now - stat.mtimeMs > FILE_MAX_AGE_MS) {
-          fs.unlinkSync(fp);
+          await fs.promises.unlink(fp);
           deleted++;
         }
       } catch (_) { /* skip */ }
     }
-    if (deleted > 0) console.log(`🧹 Cleanup: ${deleted} file eliminati`);
-  });
+    if (deleted > 0) logger.info(`🧹 Cleanup: ${deleted} file eliminati`);
+  } catch (_) { /* directory doesn't exist */ }
 }
 
 setInterval(cleanupOldFiles, CLEANUP_INTERVAL_MS);
