@@ -1385,7 +1385,7 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
 
         // Stesso piano? Nulla da fare
         if (user.current_plan === plan) {
-          return res.status(400).json({ error: `Sei già sul piano ${plan === 'base' ? 'Base' : 'Pro'} [v3].` });
+          return res.status(400).json({ error: `Sei già sul piano ${plan === 'base' ? 'Base' : 'Pro'}.` });
         }
 
         // Determina se è upgrade o downgrade
