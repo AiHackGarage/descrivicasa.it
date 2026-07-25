@@ -193,6 +193,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; frame-src https://js.stripe.com https://accounts.google.com; connect-src 'self' https://api.openrouter.ai https://api.stripe.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com;");
   next();
 });
 
@@ -754,7 +755,7 @@ app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), async
     });
   } catch (err) {
     console.error('Analyze error:', err);
-    res.status(500).json({ error: err.message || 'Errore interno' });
+    res.status(500).json({ error: 'Errore interno' });
   }
 });
 
@@ -917,7 +918,7 @@ app.post('/api/properties', authMiddleware, upload.array('files', 10), async (re
     res.status(201).json({ uuid, message: 'Immobile creato' });
   } catch (err) {
     console.error('Create property error:', err);
-    res.status(500).json({ error: err.message || 'Errore creazione immobile' });
+    res.status(500).json({ error: 'Errore creazione immobile' });
   }
 });
 
@@ -930,7 +931,7 @@ app.get('/api/properties', authMiddleware, async (req, res) => {
     );
     res.json({ properties: rows });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Errore interno del server' });
   }
 });
 
@@ -951,7 +952,7 @@ app.get('/api/properties/:id', authMiddleware, async (req, res) => {
     p.is_public = !!p.is_public;
     res.json({ property: p });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Errore interno del server' });
   }
 });
 
@@ -991,25 +992,46 @@ app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async 
       WHERE id=? AND user_id=?
     `, [
       data.contract_type || 'sell', data.property_type || 'apartment',
-      data.address || null, data.civic || null, data.cap || null, data.city || null,
-      data.province || null, data.zone || null, data.latitude || null, data.longitude || null,
-      data.surface || null, data.rooms || null, data.bedrooms || null, data.bathrooms || null,
-      data.floor ?? null, data.total_floors || null, data.elevator ? 1 : 0,
-      data.building_state || null, data.year_built || null, data.energy_class || null,
-      data.energy_index || null, data.heating || null, data.air_conditioning ? 1 : 0,
-      data.exposure || null, data.balcony_sqm || null, data.garden_sqm || null,
+      data.address !== undefined ? data.address : null,
+      data.civic !== undefined ? data.civic : null,
+      data.cap !== undefined ? data.cap : null,
+      data.city !== undefined ? data.city : null,
+      data.province !== undefined ? data.province : null,
+      data.zone !== undefined ? data.zone : null,
+      data.latitude !== undefined ? data.latitude : null,
+      data.longitude !== undefined ? data.longitude : null,
+      data.surface !== undefined ? data.surface : null,
+      data.rooms !== undefined ? data.rooms : null,
+      data.bedrooms !== undefined ? data.bedrooms : null,
+      data.bathrooms !== undefined ? data.bathrooms : null,
+      data.floor ?? null, data.total_floors !== undefined ? data.total_floors : null,
+      data.elevator ? 1 : 0,
+      data.building_state !== undefined ? data.building_state : null,
+      data.year_built !== undefined ? data.year_built : null,
+      data.energy_class !== undefined ? data.energy_class : null,
+      data.energy_index !== undefined ? data.energy_index : null,
+      data.heating !== undefined ? data.heating : null,
+      data.air_conditioning ? 1 : 0,
+      data.exposure !== undefined ? data.exposure : null,
+      data.balcony_sqm !== undefined ? data.balcony_sqm : null,
+      data.garden_sqm !== undefined ? data.garden_sqm : null,
       data.parking ? 1 : 0, data.basement ? 1 : 0, data.furnished || 'no',
-      data.price || null, data.condo_fees || null,
-      data.agent_name || null, data.agent_phone || null, data.agent_email || null,
+      data.price !== undefined ? data.price : null,
+      data.condo_fees !== undefined ? data.condo_fees : null,
+      data.agent_name !== undefined ? data.agent_name : null,
+      data.agent_phone !== undefined ? data.agent_phone : null,
+      data.agent_email !== undefined ? data.agent_email : null,
       existingPhotos.length > 0 ? JSON.stringify(existingPhotos) : null,
-      data.status || 'draft', data.title || null, data.description || null,
+      data.status || 'draft',
+      data.title !== undefined ? data.title : null,
+      data.description !== undefined ? data.description : null,
       req.params.id, req.user.id,
     ]);
 
     res.json({ message: 'Immobile aggiornato' });
   } catch (err) {
     console.error('Update property error:', err);
-    res.status(500).json({ error: err.message || 'Errore aggiornamento' });
+    res.status(500).json({ error: 'Errore aggiornamento' });
   }
 });
 
@@ -1019,7 +1041,7 @@ app.delete('/api/properties/:id', authMiddleware, async (req, res) => {
     await pool.query('DELETE FROM properties WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     res.json({ message: 'Immobile eliminato' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Errore interno del server' });
   }
 });
 
@@ -1102,7 +1124,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     });
   } catch (err) {
     console.error('Generate error:', err);
-    res.status(500).json({ error: err.message || 'Errore generazione' });
+    res.status(500).json({ error: 'Errore generazione' });
   }
 });
 
@@ -1136,7 +1158,7 @@ app.get('/api/p/:uuid', async (req, res) => {
 
     res.json({ property: p });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Errore interno del server' });
   }
 });
 
@@ -1273,7 +1295,7 @@ app.get('/api/p/:uuid/pdf', async (req, res) => {
     doc.end();
   } catch (err) {
     if (!res.headersSent) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Errore interno del server' });
     }
   }
 });
@@ -1287,6 +1309,21 @@ app.get('/p/:uuid/:slug', (req, res) => {
 });
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// ── Global error handler ──────────────────────────────────────────
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err.stack || err.message);
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Richiesta non valida' });
+  }
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File troppo grande. Massimo 20MB.' });
+  }
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({ error: 'Troppi file caricati' });
+  }
+  res.status(500).json({ error: 'Errore interno del server' });
 });
 
 // ── Helper ──────────────────────────────────────────────────────────
@@ -1416,7 +1453,7 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error('Stripe checkout error:', err);
-    res.status(500).json({ error: 'Errore creazione sessione di pagamento: ' + err.message });
+    res.status(500).json({ error: 'Errore creazione sessione di pagamento' });
   }
 });
 
@@ -1528,7 +1565,7 @@ app.post('/api/customer-portal', authMiddleware, async (req, res) => {
     res.json({ url: portalSession.url });
   } catch (err) {
     console.error('Customer portal error:', err);
-    res.status(500).json({ error: 'Errore apertura portale: ' + err.message });
+    res.status(500).json({ error: 'Errore apertura portale' });
   }
 });
 
