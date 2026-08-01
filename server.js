@@ -612,7 +612,7 @@ app.get('/api/history', authMiddleware, async (req, res) => {
 });
 app.get('/api/me', authMiddleware, async (req, res) => {
   try {
-    const [users] = await pool.query('SELECT id, name, email, avatar, plan, monthly_generations, monthly_reset, created_at FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await pool.query('SELECT id, name, email, avatar, plan, monthly_generations, monthly_reset, created_at, stripe_customer_id, stripe_subscription_id, subscription_status FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
     const user = users[0];
     const limit = PLAN_LIMITS[user.plan || 'free'];
