@@ -1576,6 +1576,11 @@
                 if (manageBtn) manageBtn.style.display = 'none';
                 if (pricingBtn) pricingBtn.textContent = 'Vedi piani ➤';
             }
+            // Nascondi pulsante verifica carta se già verificata
+            const verifyBtn = document.getElementById('profile-btn-verify-card');
+            if (verifyBtn) {
+                verifyBtn.style.display = currentUser.card_verified_at ? 'none' : '';
+            }
             loadHistory();
         }
 
