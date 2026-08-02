@@ -1306,7 +1306,7 @@
         <div class="view" id="view-dashboard">
             <div class="dashboard-header">
                 <h2>📋 I tuoi immobili</h2>
-                <button class="btn-primary" onclick="newProperty()">➕ Nuovo immobile</button>
+                <button class="btn-primary" id="btn-new-property" onclick="newProperty()">➕ Nuovo immobile</button>
             </div>
             <div class="dashboard-toolbar">
                 <div class="search-wrap">
@@ -1410,6 +1410,21 @@
                 const remaining = currentUser.remaining !== undefined ? currentUser.remaining : '?';
                 genSpan.textContent = remaining + '/' + (currentUser.monthly_limit || 3);
                 avatarImg.src = currentUser.avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="%23e8e8ed"/><text x="16" y="21" text-anchor="middle" font-size="16" fill="%2386868b">' + currentUser.name.charAt(0).toUpperCase() + '</text></svg>';
+                // Disabilita pulsante Nuovo immobile se crediti esauriti
+                const btnNew = document.getElementById('btn-new-property');
+                if (btnNew) {
+                    if (remaining <= 0) {
+                        btnNew.disabled = true;
+                        btnNew.style.opacity = '0.5';
+                        btnNew.style.cursor = 'not-allowed';
+                        btnNew.textContent = '🔒 Crediti esauriti';
+                    } else {
+                        btnNew.disabled = false;
+                        btnNew.style.opacity = '';
+                        btnNew.style.cursor = '';
+                        btnNew.textContent = '➕ Nuovo immobile';
+                    }
+                }
                 // If on landing and logged in, go to dashboard
                 if (currentView === 'landing') { navigateTo('dashboard'); loadDashboard(); }
             } else {
@@ -1906,6 +1921,10 @@
         let editorMarker = null;
 
         function newProperty() {
+            if (currentUser && currentUser.remaining <= 0) {
+                alert('Hai esaurito le descrizioni di questo mese. Passa a Base o Pro per continuare.');
+                return;
+            }
             editorState.editingId = null;
             editorState.step = 1;
             editorState.data = {
@@ -2772,6 +2791,7 @@
                     headers: { 'Authorization': 'Bearer ' + authToken },
                     body: formData
                 });
+                if (handleAuthError(createRes.status)) return;
                 const createData = await createRes.json();
                 if (createData.error) throw new Error(createData.error);
 
@@ -2783,6 +2803,7 @@
                 const listRes = await fetch('/api/properties', {
                     headers: { 'Authorization': 'Bearer ' + authToken }
                 });
+                if (handleAuthError(listRes.status)) return;
                 const listData = await listRes.json();
                 const props = listData.properties || [];
                 const prop = props.find(p => p.uuid === uuid);
@@ -2796,6 +2817,7 @@
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + authToken }
                 });
+                if (handleAuthError(genRes.status)) return;
                 const genData = await genRes.json();
                 if (genData.error) throw new Error(genData.error);
 
@@ -2810,6 +2832,20 @@
                 if (overlay) overlay.classList.remove('show');
                 alert('Errore: ' + err.message);
             }
+        }
+
+        // Helper: check if fetch response is 401 (token expired) and force re-login
+        function handleAuthError(status) {
+            if (status === 401) {
+                alert('Sessione scaduta. Per favore, rieffettua il login.');
+                localStorage.removeItem('dc_token');
+                authToken = null;
+                currentUser = null;
+                updateUI();
+                navigateTo('landing');
+                return true;
+            }
+            return false;
         }
 
         
