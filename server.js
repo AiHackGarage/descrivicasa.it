@@ -22,6 +22,7 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY_PROVA || process.env.STR
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET_PROVA || process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_PRICE_ID_BASE = process.env.STRIPE_PRICE_ID_BASIC_PROVA || process.env.STRIPE_PRICE_ID_BASE || '';
 const STRIPE_PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO_PROVA || process.env.STRIPE_PRICE_ID_PRO || '';
+const STRIPE_PRICE_ID_PROVA_LIVE = process.env.STRIPE_PRICE_ID_PROVA_LIVE || '';
 const STRIPE_PUBLIC_KEY = process.env.STRIPE_PUBLIC_KEY_PROVA || process.env.STRIPE_PUBLIC_KEY || '';
 
 let stripe = null;
@@ -98,24 +99,42 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
   }
 
   try {
-    // Gestisci checkout.session.completed → upgrade piano utente
+    // Gestisci checkout.session.completed
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const userId = parseInt(session.metadata?.userId, 10);
-      const plan = session.metadata?.plan;
 
-      if (userId && plan && ['base', 'pro'].includes(plan)) {
-        // Prima prova UPDATE completo (con colonne Stripe se esistono)
-        try {
-          await pool.query(
-            'UPDATE users SET plan = ?, stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
-            [plan, session.customer || null, session.subscription || null, 'active', userId]
-          );
-        } catch (_) {
-          // Fallback: solo piano (colonne Stripe non ancora migrate)
-          await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, userId]);
+      // One-time payment (verifica carta): registra timestamp, NON cambia piano
+      if (session.mode === 'payment') {
+        const userId = parseInt(session.metadata?.userId, 10);
+        if (userId) {
+          try {
+            await pool.query(
+              'UPDATE users SET card_verified_at = NOW() WHERE id = ?',
+              [userId]
+            );
+            logger.info(`💳 User ${userId} card verified (one-time payment)`);
+          } catch (_) { /* colonna card_verified_at non ancora migrata */ }
         }
-        logger.info(`✅ User ${userId} upgraded to ${plan}`);
+      }
+
+      // Subscription payment: upgrade piano utente
+      if (session.mode === 'subscription') {
+        const userId = parseInt(session.metadata?.userId, 10);
+        const plan = session.metadata?.plan;
+
+        if (userId && plan && ['base', 'pro'].includes(plan)) {
+          // Prima prova UPDATE completo (con colonne Stripe se esistono)
+          try {
+            await pool.query(
+              'UPDATE users SET plan = ?, stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = ? WHERE id = ?',
+              [plan, session.customer || null, session.subscription || null, 'active', userId]
+            );
+          } catch (_) {
+            // Fallback: solo piano (colonne Stripe non ancora migrate)
+            await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, userId]);
+          }
+          logger.info(`✅ User ${userId} upgraded to ${plan}`);
+        }
       }
     }
 
@@ -267,6 +286,7 @@ async function initDatabase() {
     try { await conn.query(`ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255) DEFAULT NULL AFTER marketing_consent`); } catch (_) {}
     try { await conn.query(`ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255) DEFAULT NULL AFTER stripe_customer_id`); } catch (_) {}
     try { await conn.query(`ALTER TABLE users ADD COLUMN subscription_status VARCHAR(50) DEFAULT NULL AFTER stripe_subscription_id`); } catch (_) {}
+    try { await conn.query(`ALTER TABLE users ADD COLUMN card_verified_at TIMESTAMP NULL DEFAULT NULL AFTER subscription_status`); } catch (_) {}
 
     // Generations history table
     await conn.query(`
@@ -612,7 +632,7 @@ app.get('/api/history', authMiddleware, async (req, res) => {
 });
 app.get('/api/me', authMiddleware, async (req, res) => {
   try {
-    const [users] = await pool.query('SELECT id, name, email, avatar, plan, monthly_generations, monthly_reset, created_at, stripe_customer_id, stripe_subscription_id, subscription_status FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await pool.query('SELECT id, name, email, avatar, plan, monthly_generations, monthly_reset, created_at, stripe_customer_id, stripe_subscription_id, subscription_status, card_verified_at FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
     const user = users[0];
     const limit = PLAN_LIMITS[user.plan || 'free'];
@@ -1458,6 +1478,54 @@ app.post('/api/create-checkout-session', authMiddleware, async (req, res) => {
   } catch (err) {
     logger.error('Stripe checkout error:', err);
     res.status(500).json({ error: 'Errore creazione sessione di pagamento' });
+  }
+});
+
+// Checkout one-time per verifica carta (1€, no abbonamento)
+app.post('/api/create-test-checkout', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: 'Stripe non configurato. Controlla STRIPE_SECRET_KEY nel .env' });
+    if (!STRIPE_PRICE_ID_PROVA_LIVE) return res.status(500).json({ error: 'Prodotto di test non configurato (manca STRIPE_PRICE_ID_PROVA_LIVE)' });
+
+    const { successUrl, cancelUrl } = req.body;
+
+    // Recupera utente
+    const [users] = await pool.query(
+      'SELECT id, email, name, stripe_customer_id FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
+
+    const user = users[0];
+    let customerId = user.stripe_customer_id;
+
+    // Crea customer Stripe se non esiste
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name,
+        metadata: { userId: String(req.user.id) },
+      });
+      customerId = customer.id;
+      await pool.query('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customerId, req.user.id]);
+      logger.info(`✅ Stripe customer created: ${customerId} for user ${req.user.id}`);
+    }
+
+    // Crea sessione checkout one-time (mode: payment)
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{ price: STRIPE_PRICE_ID_PROVA_LIVE, quantity: 1 }],
+      mode: 'payment',
+      success_url: successUrl || 'https://descrivicasa.it/?verified=1',
+      cancel_url: cancelUrl || 'https://descrivicasa.it/pricing',
+      metadata: { userId: String(req.user.id), type: 'card_verification' },
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    logger.error('Test checkout error:', err);
+    res.status(500).json({ error: 'Errore creazione sessione di test' });
   }
 });
 

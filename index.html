@@ -1189,6 +1189,7 @@
         <div class="profile-footer">
             <a href="/pricing" class="profile-btn" id="profile-btn-pricing">Vedi piani ➤</a>
             <button class="profile-btn profile-btn-outline" id="profile-btn-manage" style="display:none" onclick="openCustomerPortal()">⚙️ Gestisci abbonamento</button>
+            <button class="profile-btn profile-btn-outline" id="profile-btn-verify-card" onclick="testCheckout()">💳 Verifica carta — 1€</button>
             <button class="profile-btn profile-btn-outline" onclick="logout(); toggleProfile();">Esci</button>
         </div>
         <div class="history-section" id="history-section">
@@ -1600,6 +1601,35 @@
             } catch (err) {
                 alert('Errore: ' + err.message);
                 if (btn) btn.textContent = '⚙️ Gestisci abbonamento';
+            }
+        }
+
+        async function testCheckout() {
+            if (!authToken || !currentUser) {
+                showModal('register');
+                return;
+            }
+            const btn = document.getElementById('profile-btn-verify-card');
+            if (btn) btn.textContent = '⏳...';
+            try {
+                const resp = await fetch('/api/create-test-checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken,
+                    },
+                    body: JSON.stringify({}),
+                });
+                const data = await resp.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    alert(data.error || 'Errore creazione pagamento di test');
+                }
+            } catch (err) {
+                alert('Errore: ' + err.message);
+            } finally {
+                if (btn) btn.textContent = '💳 Verifica carta — 1€';
             }
         }
 
@@ -2958,6 +2988,12 @@
                             }
                         })
                         .catch(() => {});
+                    }
+
+                    // Banner verifica carta completata (?verified=1)
+                    if (urlParams.get('verified') === '1') {
+                        alert('✅ Carta verificata con successo! Il pagamento di 1€ è andato a buon fine.');
+                        window.history.replaceState({}, '', '/');
                     }
 
                     if (currentView === 'dashboard' || currentView === 'landing') loadDashboard();
