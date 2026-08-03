@@ -2746,6 +2746,9 @@
             const pEl = overlay ? overlay.querySelector('p') : null;
             if (overlay) overlay.classList.add('show');
 
+            let propId = null;   // per cleanup in caso di fallimento
+            let propUuid = null; // UUID dell'immobile creato
+
             try {
                 if (pEl) pEl.textContent = 'Creazione immobile...';
 
@@ -2797,6 +2800,7 @@
 
                 const uuid = createData.uuid;
                 if (!uuid) throw new Error('UUID non ricevuto');
+                propUuid = uuid;
 
                 if (pEl) pEl.textContent = 'Generazione descrizione in corso...';
 
@@ -2811,6 +2815,8 @@
                     window.location.href = propertyUrl(uuid);
                     return;
                 }
+
+                propId = prop.id;
 
                 if (pEl) pEl.textContent = "AI all'opera...";
                 const genRes = await fetch('/api/properties/' + prop.id + '/generate', {
@@ -2829,6 +2835,32 @@
                 window.location.href = propertyUrl(uuid, genData.title);
 
             } catch (err) {
+                // Cleanup: se l'immobile è stato creato ma la generazione fallisce, eliminalo
+                if (propId) {
+                    try {
+                        await fetch('/api/properties/' + propId, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': 'Bearer ' + authToken }
+                        });
+                    } catch (_) { /* ignora errori cleanup */ }
+                } else if (propUuid) {
+                    // Fallback: se abbiamo l'UUID ma non l'ID, cerca e cancella
+                    try {
+                        const listRes = await fetch('/api/properties', {
+                            headers: { 'Authorization': 'Bearer ' + authToken }
+                        });
+                        if (listRes.ok) {
+                            const listData = await listRes.json();
+                            const p = (listData.properties || []).find(p => p.uuid === propUuid);
+                            if (p) {
+                                await fetch('/api/properties/' + p.id, {
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': 'Bearer ' + authToken }
+                                });
+                            }
+                        }
+                    } catch (_) { /* ignora errori cleanup */ }
+                }
                 if (overlay) overlay.classList.remove('show');
                 alert('Errore: ' + err.message);
             }
