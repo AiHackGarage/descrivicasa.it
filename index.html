@@ -506,12 +506,16 @@
         }
         .property-card-actions button {
             flex: 1;
-            padding: 6px 12px;
+            padding: 10px 12px;
             border: none;
-            border-radius: 8px;
-            font-size: 0.8rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
             cursor: pointer;
+            color: white;
+            transition: opacity 0.2s;
         }
+        .property-card-actions button:hover { opacity: 0.9; }
         .dashboard-empty {
             text-align: center;
             padding: 60px 20px;
@@ -1856,9 +1860,9 @@
                 if (p.bathrooms) html += '<span>🚿 ' + p.bathrooms + '</span>';
                 html += '</div></div>';
                 html += '<div class="property-card-actions" onclick="event.stopPropagation()">';
-                html += '<button style="background:#667eea;color:white" onclick="editProperty(\'' + (p.uuid || p.id) + '\')">✏️ Modifica</button>';
-                html += '<button style="background:#34c759;color:white" onclick="event.stopPropagation();window.open(\'/api/p/' + encodeURIComponent(p.uuid || p.id) + '/pdf\',\'_blank\')">📄 PDF</button>';
-                html += '<button style="background:#ff3b30;color:white" onclick="deleteProperty(' + p.id + ')">🗑️ Elimina</button>';
+                html += '<button style="background:linear-gradient(135deg,#667eea,#764ba2)" onclick="editProperty(\'' + (p.uuid || p.id) + '\')">✏️ Modifica</button>';
+                html += '<button style="background:linear-gradient(135deg,#6daa7e,#4f8a5f)" onclick="event.stopPropagation();window.open(\'/api/p/' + encodeURIComponent(p.uuid || p.id) + '/pdf\',\'_blank\')">📄 PDF</button>';
+                html += '<button style="background:linear-gradient(135deg,#c97a7a,#a85555)" onclick="deleteProperty(' + p.id + ')">🗑️ Elimina</button>';
                 html += '</div></div>';
             });
             html += '</div>';
