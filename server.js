@@ -1085,6 +1085,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
 
     // Convert photo URLs to local file paths (use UPLOAD_DIR, not __dirname/uploads)
     const filePaths = photos.map(url => path.join(UPLOAD_DIR, path.basename(url))).filter(fs.existsSync);
+    logger.info({ photosCount: photos.length, filePathsCount: filePaths.length, filesInRequest: req.files ? req.files.length : 0 }, 'Generate: photo resolution');
 
     // Load contact info from property, fall back to user profile
     const propertyWithContacts = {
@@ -1095,7 +1096,11 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     };
 
     const result = await describePropertyWithData(filePaths, propertyWithContacts, plan);
-    if (result.error) return res.status(500).json(result);
+    if (result.error) {
+      logger.error({ error: result.error }, 'Generate: describePropertyWithData returned error');
+      return res.status(500).json(result);
+    }
+    logger.info({ descLength: result.description ? result.description.length : 0, model: result.model }, 'Generate: AI response received');
 
     // Inject real contact info into the AI description (replace AI-generated contacts)
     const finalDescription = injectContacts(result.description, propertyWithContacts);
@@ -1126,7 +1131,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
       uuid: property.uuid,
     });
   } catch (err) {
-    logger.error('Generate error:', err);
+    logger.error({ message: err.message, stack: err.stack?.slice(0, 300), code: err.code, name: err.name }, 'Generate error');
     res.status(500).json({ error: 'Errore generazione' });
   }
 });
