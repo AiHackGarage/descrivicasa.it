@@ -947,7 +947,7 @@ app.get('/api/properties/:id', authMiddleware, async (req, res) => {
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
     const p = rows[0];
-    p.photos = p.photos ? JSON.parse(p.photos) : [];
+    p.photos = p.photos || [];
     p.elevator = !!p.elevator;
     p.air_conditioning = !!p.air_conditioning;
     p.parking = !!p.parking;
@@ -975,7 +975,7 @@ app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async 
     }
 
     let existingPhotos = [];
-    try { existingPhotos = existing[0][0].photos ? JSON.parse(existing[0][0].photos) : []; } catch (_) {}
+    try { existingPhotos = existing[0][0].photos || []; } catch (_) {}
 
     if (req.files && req.files.length > 0) {
       const newPhotos = req.files.map(f => `/media/uploads/${path.basename(f.path)}`);
@@ -1055,7 +1055,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
 
     const property = rows[0];
-    let photos = property.photos ? JSON.parse(property.photos) : [];
+    let photos = property.photos || [];
 
     // If new files uploaded, add them
     if (req.files && req.files.length > 0) {
@@ -1132,7 +1132,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     });
   } catch (err) {
     logger.error({ message: err.message, stack: err.stack?.slice(0, 300), code: err.code, name: err.name }, 'Generate error');
-    res.status(500).json({ error: 'Errore generazione: ' + (err.message || 'sconosciuto') });
+    res.status(500).json({ error: 'Errore generazione' });
   }
 });
 
@@ -1152,7 +1152,7 @@ app.get('/api/p/:uuid', async (req, res) => {
     p.agent_name = p.agent_name || p.user_name;
     p.agent_email = p.agent_email || p.user_email;
     p.agent_phone = p.agent_phone || null;
-    p.photos = p.photos ? JSON.parse(p.photos) : [];
+    p.photos = p.photos || [];
     p.elevator = !!p.elevator;
     p.air_conditioning = !!p.air_conditioning;
     p.parking = !!p.parking;
