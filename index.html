@@ -1178,10 +1178,10 @@
                 <span class="profile-value" id="profile-plan"></span>
             </div>
             <div class="profile-row">
-                <span class="profile-label">Immobili</span>
+                <span class="profile-label">Descrizioni</span>
                 <span class="profile-value" id="profile-remaining"></span>
             </div>
-            <div class="profile-row">
+            <div class="profile-row" id="profile-renewal-row" style="display:none">
                 <span class="profile-label">Rinnovo</span>
                 <span class="profile-value" id="profile-renewal"></span>
             </div>
@@ -1575,11 +1575,19 @@
             document.getElementById('profile-email').textContent = currentUser.email;
             const planNames = { free: 'Free', base: 'Base — €9/mese', pro: 'Pro — €29/mese' };
             document.getElementById('profile-plan').textContent = planNames[currentUser.plan] || 'Free';
-            const remaining = currentUser.remaining !== undefined ? currentUser.remaining : (currentUser.monthly_limit || 3);
-            document.getElementById('profile-remaining').textContent = remaining + '/' + (currentUser.monthly_limit || 3);
-            const now = new Date();
-            const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            document.getElementById('profile-renewal').textContent = endMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+            const limit = currentUser.monthly_limit || 3;
+            const used = (currentUser.remaining !== undefined) ? (limit - currentUser.remaining) : 0;
+            document.getElementById('profile-remaining').textContent = used + '/' + limit;
+            // Mostra Rinnovo solo per piani a pagamento
+            const renewalRow = document.getElementById('profile-renewal-row');
+            if (currentUser.plan === 'base' || currentUser.plan === 'pro') {
+                if (renewalRow) renewalRow.style.display = '';
+                const now = new Date();
+                const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                document.getElementById('profile-renewal').textContent = endMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+            } else {
+                if (renewalRow) renewalRow.style.display = 'none';
+            }
             if (currentUser.created_at) {
                 const d = new Date(currentUser.created_at);
                 document.getElementById('profile-since').textContent = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });

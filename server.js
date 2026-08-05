@@ -617,9 +617,11 @@ app.get('/api/me', authMiddleware, async (req, res) => {
     const user = users[0];
     const limit = PLAN_LIMITS[user.plan || 'free'];
     const remaining = Math.max(0, limit - (user.monthly_generations || 0));
-    // Reset se cambio mese
-    const today = new Date().toISOString().slice(0, 10);
-    const genRemaining = user.monthly_reset !== today ? limit : remaining;
+    // Reset solo al cambio mese (confronto anno-mese, non giorno)
+    const now = new Date();
+    const thisMonth = now.toISOString().slice(0, 7);
+    const resetMonth = user.monthly_reset ? user.monthly_reset.slice(0, 7) : null;
+    const genRemaining = (resetMonth !== thisMonth) ? limit : remaining;
     res.json({ user: { ...user, monthly_limit: limit, remaining: genRemaining } });
   } catch (err) {
     res.status(500).json({ error: 'Errore profilo' });
@@ -689,10 +691,12 @@ async function checkGenerationLimit(userId, plan) {
 
   const { monthly_generations, monthly_reset } = rows[0];
   const today = new Date().toISOString().slice(0, 10);
+  const thisMonth = today.slice(0, 7);
+  const resetMonth = monthly_reset ? monthly_reset.slice(0, 7) : null;
   const limit = PLAN_LIMITS[plan] || 3;
 
-  // Reset mensile
-  if (monthly_reset !== today) {
+  // Reset mensile (solo al cambio mese, non ogni giorno)
+  if (resetMonth !== thisMonth) {
     await pool.query(
       'UPDATE users SET monthly_generations = 0, monthly_reset = ? WHERE id = ?',
       [today, userId]
