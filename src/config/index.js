@@ -1,5 +1,6 @@
 // Config: environment variables, constants, and derived configuration
 const path = require('path');
+const fs = require('fs');
 
 // env loading
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '..', '.env') }); // Hostinger parent dir
@@ -18,6 +19,9 @@ const STRIPE_PUBLIC_KEY = process.env.STRIPE_PUBLIC_KEY_PROVA || process.env.STR
 // ── Uploads ──
 const UPLOAD_DIR = process.env.UPLOAD_DIR
   || path.join(__dirname, '..', '..', '..', 'persistent_uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 // ── Database ──
 const DB_CONFIG = {
