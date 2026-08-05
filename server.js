@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const rateLimit = require('express-rate-limit');
 const PDFDocument = require('pdfkit');
+const sharp = require('sharp');
 const logger = require('pino')({ level: process.env.LOG_LEVEL || 'info' });
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 // Project-level .env overrides (e.g., Stripe test keys)
@@ -83,6 +84,52 @@ const upload = multer({
     cb(null, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype));
   },
 });
+
+// ── Image processing utilities ─────────────────────────────────────
+const IMAGE_MAX_DIM = 1920;
+const IMAGE_QUALITY = 80;
+const PDF_IMAGE_WIDTH = 800;
+
+// Processa un'immagine uploadata: ridimensiona a max 1920px, JPEG qualità 80%
+async function processUploadedImage(filePath) {
+  try {
+    const metadata = await sharp(filePath).metadata();
+    // Salta se è già più piccola del limite (es. già processata)
+    if (metadata.width <= IMAGE_MAX_DIM && metadata.height <= IMAGE_MAX_DIM
+        && metadata.format === 'jpeg') {
+      return; // già ottimale
+    }
+    const tmpPath = filePath + '.tmp';
+    await sharp(filePath)
+      .resize(IMAGE_MAX_DIM, IMAGE_MAX_DIM, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: IMAGE_QUALITY, progressive: true })
+      .toFile(tmpPath);
+    fs.renameSync(tmpPath, filePath);
+    logger.info({ path: path.basename(filePath), origSize: metadata.width + 'x' + metadata.height }, '🖼️ Image compressed');
+  } catch (err) {
+    logger.warn({ err: err.message, file: filePath }, 'Image processing failed, keeping original');
+  }
+}
+
+// Processa tutte le immagini di un upload
+async function processUploadedFiles(files) {
+  if (!files || files.length === 0) return;
+  await Promise.all(files.map(f => processUploadedImage(f.path)));
+}
+
+// Ridimensiona un'immagine per embedding nel PDF (max 800px larghezza)
+async function resizeForPdf(filePath) {
+  try {
+    const buffer = await sharp(filePath)
+      .resize(PDF_IMAGE_WIDTH, null, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 75, progressive: true })
+      .toBuffer();
+    return buffer;
+  } catch (err) {
+    logger.warn({ err: err.message, file: filePath }, 'PDF image resize failed');
+    return null;
+  }
+}
 
 // ── Stripe webhook (richiede raw body, prima di express.json()) ────
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -721,6 +768,9 @@ app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), async
       return res.status(400).json({ error: `Il piano ${plan} permette al massimo ${maxPhotos} foto. Passa a Pro per caricarne fino a 10.` });
     }
 
+    // Comprimi e ottimizza immagini
+    await processUploadedFiles(req.files);
+
     // Check limit
     const limitCheck = await checkGenerationLimit(req.user.id, plan);
     if (!limitCheck.allowed) {
@@ -897,6 +947,9 @@ app.post('/api/properties', authMiddleware, upload.array('files', 10), async (re
     const uuid = crypto.randomUUID();
     const photoUrls = req.files ? req.files.map(f => `/media/uploads/${path.basename(f.path)}`) : [];
 
+    // Comprimi e ottimizza immagini
+    await processUploadedFiles(req.files);
+
     await pool.query(`
       INSERT INTO properties (
         uuid, user_id, contract_type, property_type,
@@ -982,6 +1035,8 @@ app.put('/api/properties/:id', authMiddleware, upload.array('files', 10), async 
     try { existingPhotos = existing[0][0].photos || []; } catch (_) {}
 
     if (req.files && req.files.length > 0) {
+      // Comprimi e ottimizza immagini
+      await processUploadedFiles(req.files);
       const newPhotos = req.files.map(f => `/media/uploads/${path.basename(f.path)}`);
       existingPhotos = [...existingPhotos, ...newPhotos];
     }
@@ -1063,6 +1118,8 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
 
     // If new files uploaded, add them
     if (req.files && req.files.length > 0) {
+      // Comprimi e ottimizza immagini
+      await processUploadedFiles(req.files);
       const newPhotos = req.files.map(f => `/media/uploads/${path.basename(f.path)}`);
       photos = [...photos, ...newPhotos];
     }
@@ -1286,6 +1343,45 @@ app.get('/api/p/:uuid/pdf', async (req, res) => {
     // Divider
     doc.moveTo(50, doc.y + 5).lineTo(545, doc.y + 5).strokeColor('#e8e8ed').lineWidth(0.5).stroke();
     doc.moveDown(0.6);
+
+    // Photos
+    let photoPaths = [];
+    try {
+      const rawPhotos = p.photos || '[]';
+      const photos = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
+      photoPaths = photos.map(url => path.join(UPLOAD_DIR, path.basename(url))).filter(fs.existsSync);
+    } catch (_) {}
+
+    if (photoPaths.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').fillColor(dark).text('Galleria');
+      doc.moveDown(0.4);
+      const imgW = 235;   // larghezza immagine nel PDF
+      const imgH = 155;   // altezza fissa per griglia uniforme
+      const gap = 25;     // spazio tra colonne
+      let imgY = doc.y;
+      for (let i = 0; i < photoPaths.length; i++) {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const ix = 50 + col * (imgW + gap);
+        const iy = imgY + row * (imgH + 12);
+        // Nuova pagina se non c'è spazio per la riga
+        if (iy + imgH > doc.page.height - 55) {
+          doc.addPage();
+          imgY = doc.y;
+          const newRow = Math.floor(i / 2);
+          const newIy = imgY + newRow * (imgH + 12);
+          const newIx = 50 + (i % 2) * (imgW + gap);
+          const imgBuf = await resizeForPdf(photoPaths[i]);
+          if (imgBuf) doc.image(imgBuf, newIx, newIy, { width: imgW, height: imgH });
+        } else {
+          const imgBuf = await resizeForPdf(photoPaths[i]);
+          if (imgBuf) doc.image(imgBuf, ix, iy, { width: imgW, height: imgH });
+        }
+      }
+      // Avanza y oltre le immagini
+      const rows = Math.ceil(photoPaths.length / 2);
+      doc.y = imgY + rows * (imgH + 12) + 8;
+    }
 
     // Description
     doc.fontSize(12).font('Helvetica-Bold').fillColor(dark).text('Descrizione');
