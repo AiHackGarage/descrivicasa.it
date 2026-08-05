@@ -45,7 +45,7 @@ router.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), as
       return res.status(400).json({ error: `Il piano ${plan} permette al massimo ${maxPhotos} foto. Passa a Pro per caricarne fino a 10.` });
     }
 
-    await processUploadedFiles(req.files);
+    // await processUploadedFiles(req.files);  // DEBUG: skip sharp
 
     const limitCheck = await checkGenerationLimit(req.user.id, plan);
     if (!limitCheck.allowed) {
