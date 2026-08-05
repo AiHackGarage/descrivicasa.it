@@ -812,7 +812,7 @@ app.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), async
     });
   } catch (err) {
     logger.error('Analyze error:', err);
-    res.status(500).json({ error: 'Errore interno' });
+    res.status(500).json({ error: 'Errore interno', _debug: err.message });
   }
 });
 
@@ -1193,7 +1193,7 @@ app.post('/api/properties/:id/generate', authMiddleware, upload.array('files', 1
     });
   } catch (err) {
     logger.error({ message: err.message, stack: err.stack?.slice(0, 300), code: err.code, name: err.name }, 'Generate error');
-    res.status(500).json({ error: 'Errore generazione' });
+    res.status(500).json({ error: 'Errore generazione', _debug: err.message });
   }
 });
 
