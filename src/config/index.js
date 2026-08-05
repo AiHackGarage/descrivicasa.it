@@ -17,7 +17,7 @@ const STRIPE_PUBLIC_KEY = process.env.STRIPE_PUBLIC_KEY_PROVA || process.env.STR
 
 // ── Uploads ──
 const UPLOAD_DIR = process.env.UPLOAD_DIR
-  || path.join(__dirname, '..', '..', 'persistent_uploads');
+  || path.join(__dirname, '..', '..', '..', 'persistent_uploads');
 
 // ── Database ──
 const DB_CONFIG = {
