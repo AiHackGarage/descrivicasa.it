@@ -21,6 +21,7 @@ app.use('/api/stripe', stripeRouter);
 
 app.use(express.json());
 app.use('/media/uploads', express.static(UPLOAD_DIR));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(securityHeaders);
 
 app.use('/api', authRouter);
