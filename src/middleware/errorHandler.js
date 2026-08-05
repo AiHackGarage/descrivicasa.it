@@ -11,7 +11,7 @@ function errorHandler(err, req, res, _next) {
   if (err.code === 'LIMIT_UNEXPECTED_FILE') {
     return res.status(400).json({ error: 'Troppi file caricati' });
   }
-  res.status(500).json({ error: 'Errore interno del server', _debug: err.message });
+  res.status(500).json({ error: 'Errore interno del server' });
 }
 
 module.exports = { errorHandler };
