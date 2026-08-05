@@ -1,6 +1,8 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
 const { STRIPE_PUBLIC_KEY } = require('../config');
+const { validate } = require('../utils/validate');
+const { checkoutSchema, syncSubscriptionSchema, customerPortalSchema } = require('../utils/schemas');
 const stripeService = require('../services/stripe');
 
 const router = express.Router();
@@ -15,12 +17,24 @@ router.get('/public-key', (req, res) => {
 });
 
 // Checkout session
-router.post('/create-checkout-session', authMiddleware, (req, res) => stripeService.createCheckoutSession(req, res));
+router.post('/create-checkout-session', authMiddleware, (req, res) => {
+  const errors = validate(req.body, checkoutSchema);
+  if (errors) return res.status(400).json({ error: errors[0] });
+  return stripeService.createCheckoutSession(req, res);
+});
 
 // Sync subscription
-router.post('/sync-subscription', authMiddleware, (req, res) => stripeService.syncSubscription(req, res));
+router.post('/sync-subscription', authMiddleware, (req, res) => {
+  const errors = validate(req.body, syncSubscriptionSchema);
+  if (errors) return res.status(400).json({ error: errors[0] });
+  return stripeService.syncSubscription(req, res);
+});
 
 // Customer portal
-router.post('/customer-portal', authMiddleware, (req, res) => stripeService.createCustomerPortal(req, res));
+router.post('/customer-portal', authMiddleware, (req, res) => {
+  const errors = validate(req.body, customerPortalSchema);
+  if (errors) return res.status(400).json({ error: errors[0] });
+  return stripeService.createCustomerPortal(req, res);
+});
 
 module.exports = router;

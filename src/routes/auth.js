@@ -7,6 +7,8 @@ const { JWT_SECRET, JWT_EXPIRES, GOOGLE_CLIENT_ID, PLAN_LIMITS } = require('../c
 const { authLimiter } = require('../middleware/rateLimit');
 const { authMiddleware } = require('../middleware/auth');
 const { serverError } = require('../utils/errors');
+const { validate } = require('../utils/validate');
+const { registerSchema, loginSchema, googleAuthSchema } = require('../utils/schemas');
 const logger = require('pino')({ level: process.env.LOG_LEVEL || 'info' });
 
 const router = express.Router();
@@ -15,13 +17,9 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 // Register
 router.post('/register', authLimiter, async (req, res) => {
   try {
+    const errors = validate(req.body, registerSchema);
+    if (errors) return res.status(400).json({ error: errors[0] });
     const { name, email, password, marketing_consent } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Nome, email e password sono obbligatori' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'La password deve essere almeno 6 caratteri' });
-    }
     const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
       return res.status(409).json({ error: 'Email già registrata' });
@@ -41,10 +39,9 @@ router.post('/register', authLimiter, async (req, res) => {
 // Login
 router.post('/login', authLimiter, async (req, res) => {
   try {
+    const errors = validate(req.body, loginSchema);
+    if (errors) return res.status(400).json({ error: errors[0] });
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email e password sono obbligatori' });
-    }
     const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
     if (users.length === 0) {
       return res.status(401).json({ error: 'Email o password errati' });
@@ -69,8 +66,9 @@ router.post('/login', authLimiter, async (req, res) => {
 // Google auth
 router.post('/auth/google', authLimiter, async (req, res) => {
   try {
+    const errors = validate(req.body, googleAuthSchema);
+    if (errors) return res.status(400).json({ error: errors[0] });
     const { credential } = req.body;
-    if (!credential) return res.status(400).json({ error: 'Token Google mancante' });
     const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
     const { sub: googleId, email, name, picture } = payload;

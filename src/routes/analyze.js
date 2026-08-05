@@ -12,6 +12,8 @@ const { checkGenerationLimit } = require('../utils/limits');
 const { extractTitle, injectContacts } = require('../utils/text');
 const { CHAT_SYSTEM } = require('../services/ai/prompts');
 const { serverError, aiError } = require('../utils/errors');
+const { validate } = require('../utils/validate');
+const { chatSchema } = require('../utils/schemas');
 const logger = require('pino')({ level: process.env.LOG_LEVEL || 'info' });
 
 const router = express.Router();
@@ -88,10 +90,9 @@ router.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), as
 // Chatbot
 router.post('/api/chat', aiLimiter, async (req, res) => {
   try {
+    const errors = validate(req.body, chatSchema);
+    if (errors) return res.status(400).json({ error: errors[0] });
     const { messages } = req.body;
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'Invia almeno un messaggio' });
-    }
     const resp = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
       method: 'POST',
       headers: {
