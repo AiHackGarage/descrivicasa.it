@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const pool = require('../db/pool');
+const { serverError } = require('../utils/errors');
 
 const router = express.Router();
 const rootDir = path.join(__dirname, '..', '..');
@@ -33,7 +34,7 @@ router.get('/sitemap.xml', async (req, res) => {
     res.setHeader('Content-Type', 'application/xml');
     res.send(xml);
   } catch (err) {
-    res.status(500).send('Error generating sitemap');
+    serverError(err, res, 'Sitemap');
   }
 });
 

@@ -11,6 +11,7 @@ const { processUploadedFiles } = require('../services/image');
 const { checkGenerationLimit } = require('../utils/limits');
 const { extractTitle, injectContacts } = require('../utils/text');
 const { CHAT_SYSTEM } = require('../services/ai/prompts');
+const { serverError, aiError } = require('../utils/errors');
 const logger = require('pino')({ level: process.env.LOG_LEVEL || 'info' });
 
 const router = express.Router();
@@ -56,7 +57,7 @@ router.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), as
     }
 
     const result = await describeProperty(req.files.map(f => f.path), 'it', plan);
-    if (result.error) return res.status(500).json(result);
+    if (result.error) return aiError(result, res, 'analyze');
 
     await pool.query('UPDATE users SET monthly_generations = monthly_generations + 1 WHERE id = ?', [req.user.id]);
 
@@ -80,8 +81,7 @@ router.post('/analyze', aiLimiter, authMiddleware, upload.array('files', 10), as
       remaining: limitCheck.remaining - 1,
     });
   } catch (err) {
-    logger.error('Analyze error:', err);
-    res.status(500).json({ error: 'Errore interno' });
+    serverError(err, res, 'Analyze');
   }
 });
 
@@ -112,8 +112,7 @@ router.post('/api/chat', aiLimiter, async (req, res) => {
     const data = await resp.json();
     res.json({ reply: data.choices[0].message.content, model: data.model });
   } catch (err) {
-    logger.error('Chat error:', err);
-    res.status(500).json({ error: 'Errore del chatbot' });
+    serverError(err, res, 'Chat');
   }
 });
 

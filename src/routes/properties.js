@@ -10,6 +10,7 @@ const { describePropertyWithData } = require('../services/ai/vision');
 const { processUploadedFiles } = require('../services/image');
 const { checkGenerationLimit } = require('../utils/limits');
 const { extractTitle, injectContacts } = require('../utils/text');
+const { serverError, aiError } = require('../utils/errors');
 const logger = require('pino')({ level: process.env.LOG_LEVEL || 'info' });
 
 const router = express.Router();
@@ -65,8 +66,7 @@ router.post('/', authMiddleware, upload.array('files', 10), async (req, res) => 
 
     res.status(201).json({ uuid, message: 'Immobile creato' });
   } catch (err) {
-    logger.error('Create property error:', err);
-    res.status(500).json({ error: 'Errore creazione immobile' });
+    serverError(err, res, 'Create property');
   }
 });
 
@@ -79,7 +79,7 @@ router.get('/', authMiddleware, async (req, res) => {
     );
     res.json({ properties: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Errore interno del server' });
+    serverError(err, res, 'List properties');
   }
 });
 
@@ -97,7 +97,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     p.is_public = !!p.is_public;
     res.json({ property: p });
   } catch (err) {
-    res.status(500).json({ error: 'Errore interno del server' });
+    serverError(err, res, 'Get property');
   }
 });
 
@@ -173,8 +173,7 @@ router.put('/:id', authMiddleware, upload.array('files', 10), async (req, res) =
 
     res.json({ message: 'Immobile aggiornato' });
   } catch (err) {
-    logger.error('Update property error:', err);
-    res.status(500).json({ error: 'Errore aggiornamento' });
+    serverError(err, res, 'Update property');
   }
 });
 
@@ -184,7 +183,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await pool.query('DELETE FROM properties WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     res.json({ message: 'Immobile eliminato' });
   } catch (err) {
-    res.status(500).json({ error: 'Errore interno del server' });
+    serverError(err, res, 'Delete property');
   }
 });
 
@@ -230,8 +229,7 @@ router.post('/:id/generate', authMiddleware, upload.array('files', 10), async (r
 
     const result = await describePropertyWithData(filePaths, propertyWithContacts, plan);
     if (result.error) {
-      logger.error({ error: result.error }, 'Generate: describePropertyWithData returned error');
-      return res.status(500).json(result);
+      return aiError(result, res, 'generate');
     }
 
     const finalDescription = injectContacts(result.description, propertyWithContacts);
@@ -256,8 +254,7 @@ router.post('/:id/generate', authMiddleware, upload.array('files', 10), async (r
       uuid: property.uuid,
     });
   } catch (err) {
-    logger.error({ message: err.message, stack: err.stack?.slice(0, 300), code: err.code, name: err.name }, 'Generate error');
-    res.status(500).json({ error: 'Errore generazione' });
+    serverError(err, res, 'Generate property');
   }
 });
 

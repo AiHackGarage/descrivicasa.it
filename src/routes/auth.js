@@ -6,6 +6,7 @@ const pool = require('../db/pool');
 const { JWT_SECRET, JWT_EXPIRES, GOOGLE_CLIENT_ID, PLAN_LIMITS } = require('../config');
 const { authLimiter } = require('../middleware/rateLimit');
 const { authMiddleware } = require('../middleware/auth');
+const { serverError } = require('../utils/errors');
 const logger = require('pino')({ level: process.env.LOG_LEVEL || 'info' });
 
 const router = express.Router();
@@ -33,8 +34,7 @@ router.post('/register', authLimiter, async (req, res) => {
     const token = jwt.sign({ id: result.insertId, email, name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ token, user: { id: result.insertId, name, email, plan: 'free', monthly_limit: PLAN_LIMITS.free, remaining: PLAN_LIMITS.free } });
   } catch (err) {
-    logger.error('Register error:', err);
-    res.status(500).json({ error: 'Errore durante la registrazione' });
+    serverError(err, res, 'Auth register');
   }
 });
 
@@ -62,8 +62,7 @@ router.post('/login', authLimiter, async (req, res) => {
     const remaining = Math.max(0, limit - (user.monthly_generations || 0));
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, plan: user.plan, monthly_limit: limit, remaining } });
   } catch (err) {
-    logger.error('Login error:', err);
-    res.status(500).json({ error: 'Errore durante il login' });
+    serverError(err, res, 'Auth login');
   }
 });
 
@@ -94,8 +93,7 @@ router.post('/auth/google', authLimiter, async (req, res) => {
     const remaining = Math.max(0, limit - (user.monthly_generations || 0));
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar || picture, plan: user.plan, monthly_limit: limit, remaining } });
   } catch (err) {
-    logger.error('Google auth error:', err);
-    res.status(500).json({ error: 'Errore autenticazione Google' });
+    serverError(err, res, 'Auth google');
   }
 });
 
@@ -108,7 +106,7 @@ router.get('/history', authMiddleware, async (req, res) => {
     );
     res.json({ history: rows.map(r => ({ ...r, image_urls: r.image_urls ? JSON.parse(r.image_urls) : [] })) });
   } catch (err) {
-    res.status(500).json({ error: 'Errore storico' });
+    serverError(err, res, 'Auth history');
   }
 });
 
@@ -129,7 +127,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     const genRemaining = (resetMonth !== thisMonth) ? limit : remaining;
     res.json({ user: { ...user, monthly_limit: limit, remaining: genRemaining } });
   } catch (err) {
-    res.status(500).json({ error: 'Errore profilo' });
+    serverError(err, res, 'Auth me');
   }
 });
 

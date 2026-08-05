@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const { injectContacts } = require('../utils/text');
 const { generatePdf } = require('../services/pdf');
+const { serverError } = require('../utils/errors');
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ router.get('/p/:uuid', async (req, res) => {
 
     res.json({ property: p });
   } catch (err) {
-    res.status(500).json({ error: 'Errore interno del server' });
+    serverError(err, res, 'Public property');
   }
 });
 
@@ -53,7 +54,7 @@ router.get('/debug-db', async (req, res) => {
     const [properties] = await pool.query('SELECT COUNT(*) AS count FROM properties');
     res.json({ tables: tables.map(t => Object.values(t)[0]), userCount: users[0].count, propertyCount: properties[0].count });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(err, res, 'Debug DB');
   }
 });
 
