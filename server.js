@@ -1234,7 +1234,7 @@ app.get('/api/p/:uuid/pdf', async (req, res) => {
        .text('DescriviCasa.it', { align: 'center' });
     doc.moveDown(0.3);
     doc.fontSize(9).font('Helvetica').fillColor(grey)
-       .text('Descrizione Immobiliare Professionale con AI', { align: 'center' });
+       .text('Descrizione Immobiliare Professionale', { align: 'center' });
     doc.moveDown(0.5);
 
     // Divider
@@ -1295,21 +1295,6 @@ app.get('/api/p/:uuid/pdf', async (req, res) => {
       align: 'justify',
     });
     doc.moveDown(0.8);
-
-    // Agent
-    if (p.agent_name) {
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e8e8ed').lineWidth(0.5).stroke();
-      doc.moveDown(0.6);
-      doc.fontSize(11).font('Helvetica-Bold').fillColor(dark).text('Agente Immobiliare');
-      doc.moveDown(0.2);
-      doc.fontSize(10).font('Helvetica').fillColor(dark).text(p.agent_name);
-      if (p.agent_email) {
-        doc.fontSize(9).font('Helvetica').fillColor(primary).text(p.agent_email);
-      }
-      if (p.agent_phone) {
-        doc.fontSize(9).font('Helvetica').fillColor(dark).text(p.agent_phone);
-      }
-    }
 
     doc.end();
   } catch (err) {
