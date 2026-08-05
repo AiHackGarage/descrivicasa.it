@@ -1,4 +1,3 @@
-    <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1081,4 +1080,3 @@
             .cookie-banner p { font-size: 0.82rem; text-align: center; }
             .cookie-buttons { width: 100%; justify-content: center; }
         }
-    </style>
