@@ -2,8 +2,8 @@
 const path = require('path');
 
 // env loading
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });    // parent dir (Hostinger)
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });     // project-level overrides
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '..', '.env') }); // Hostinger parent dir
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });         // project-level overrides
 
 // ── Server ──
 const PORT = process.env.PORT || 8000;
