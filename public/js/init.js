@@ -1,4 +1,5 @@
 // ── Application bootstrap ────────────────────────────────────
+import './state.js';  // Initialize global state FIRST (window.currentView, authToken, etc.)
 import { navigateTo } from './navigation.js';
 import { updateUI, showModal } from './auth.js';
 import { loadDashboard } from './dashboard.js';
