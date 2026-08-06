@@ -452,7 +452,8 @@
             padding: 10px 16px;
             border-top: 1px solid #f0f0f0;
         }
-        .property-card-actions button {
+        .property-card-actions button,
+        .property-card-actions a {
             flex: 1;
             padding: 10px 12px;
             border: none;
@@ -461,9 +462,12 @@
             font-weight: 600;
             cursor: pointer;
             color: white;
+            text-decoration: none;
+            text-align: center;
             transition: opacity 0.2s;
         }
-        .property-card-actions button:hover { opacity: 0.9; }
+        .property-card-actions button:hover,
+        .property-card-actions a:hover { opacity: 0.9; }
         .dashboard-empty {
             text-align: center;
             padding: 60px 20px;

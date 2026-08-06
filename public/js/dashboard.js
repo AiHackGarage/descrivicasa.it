@@ -83,7 +83,7 @@ export function renderDashboard() {
         html += '</div></div>';
         html += '<div class="property-card-actions" onclick="event.stopPropagation()">';
         html += '<button style="background:linear-gradient(135deg,#667eea,#764ba2)" onclick="editProperty(\'' + (p.uuid || p.id) + '\')">✏️ Modifica</button>';
-        html += '<button style="background:linear-gradient(135deg,#6daa7e,#4f8a5f)" onclick="event.stopPropagation();window.open(\'/api/p/' + encodeURIComponent(p.uuid || p.id) + '/pdf\',\'_blank\')">📄 PDF</button>';
+        html += '<a href="/api/p/' + encodeURIComponent(p.uuid || p.id) + '/pdf" target="_blank" rel="noopener" style="background:linear-gradient(135deg,#6daa7e,#4f8a5f)">📄 PDF</a>';
         html += '<button style="background:linear-gradient(135deg,#c97a7a,#a85555)" onclick="deleteProperty(' + p.id + ')">🗑️ Elimina</button>';
         html += '</div></div>';
     });

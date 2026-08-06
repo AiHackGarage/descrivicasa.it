@@ -383,6 +383,32 @@
             .cookie-banner p { font-size: 0.82rem; text-align: center; }
             .cookie-buttons { width: 100%; justify-content: center; }
         }
+
+        /* ── Profile Panel ── (shared with index.html) */
+        .profile-panel {
+            position: fixed; top: 60px; right: 20px; width: 340px;
+            max-height: calc(100vh - 80px); overflow-y: auto;
+            background: white; border-radius: 14px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+            z-index: 250; display: none; overflow: hidden;
+        }
+        .profile-panel.open { display: block; }
+        .profile-header { display: flex; align-items: center; gap: 14px; padding: 20px; background: #f8f8fa; }
+        .profile-header img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+        .profile-name { font-weight: 600; font-size: 1rem; }
+        .profile-email { font-size: 0.8rem; color: #86868b; margin-top: 2px; }
+        .profile-body { padding: 16px 20px; }
+        .profile-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+        .profile-row:last-child { border-bottom: none; }
+        .profile-label { font-size: 0.85rem; color: #86868b; }
+        .profile-value { font-size: 0.85rem; font-weight: 500; color: #1d1d1f; }
+        .profile-footer { display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid #f0f0f0; }
+        .profile-btn { flex: 1; padding: 9px 16px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
+        .profile-btn:hover { opacity: 0.9; }
+        .profile-btn-outline { background: white; color: #1d1d1f; border: 1px solid #d2d2d7; }
+        .profile-btn-outline:hover { background: #f5f5f7; }
+
+        @media (max-width: 600px) { .profile-panel { right: 10px; width: calc(100% - 20px); } }
     </style>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -399,13 +425,35 @@
             <button class="btn-auth btn-auth-primary" onclick="showModal('register')">Registrati</button>
         </div>
         <div class="topbar-user" id="topbar-user" style="display:none">
-            <div class="user-trigger" onclick="window.location.href='/'">
+            <div class="user-trigger" onclick="toggleProfile()">
                 <img id="user-avatar" class="user-avatar" src="" alt="">
                 <span id="user-name" class="user-name"></span>
                 <span class="user-generations" id="user-generations"></span>
                 <span class="user-arrow">▾</span>
             </div>
             <button class="btn-auth" onclick="logout()">Esci</button>
+        </div>
+    </div>
+
+    <!-- ── Profile Panel ────────────────────────────────────── -->
+    <div class="profile-panel" id="profile-panel">
+        <div class="profile-header">
+            <img id="profile-avatar" src="" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><circle cx=%2232%22 cy=%2232%22 r=%2232%22 fill=%22%23e8e8ed%22/><text x=%2232%22 y=%2240%22 text-anchor=%22middle%22 font-size=%2232%22 fill=%22%2386868b%22>?</text></svg>'">
+            <div>
+                <div class="profile-name" id="profile-name"></div>
+                <div class="profile-email" id="profile-email"></div>
+            </div>
+        </div>
+        <div class="profile-body">
+            <div class="profile-row"><span class="profile-label">Piano</span><span class="profile-value" id="profile-plan"></span></div>
+            <div class="profile-row"><span class="profile-label">Descrizioni</span><span class="profile-value" id="profile-remaining"></span></div>
+            <div class="profile-row" id="profile-renewal-row" style="display:none"><span class="profile-label">Rinnovo</span><span class="profile-value" id="profile-renewal"></span></div>
+            <div class="profile-row"><span class="profile-label">Registrato dal</span><span class="profile-value" id="profile-since"></span></div>
+        </div>
+        <div class="profile-footer">
+            <a href="/pricing" class="profile-btn" id="profile-btn-pricing">Vedi piani ➤</a>
+            <button class="profile-btn profile-btn-outline" id="profile-btn-manage" style="display:none" onclick="openCustomerPortal()">⚙️ Gestisci abbonamento</button>
+            <button class="profile-btn profile-btn-outline" onclick="logout(); toggleProfile();">Esci</button>
         </div>
     </div>
 
@@ -522,47 +570,27 @@
         <footer>
             DescriviCasa.it &copy; 2026 &mdash; Tutti i diritti riservati
         <
+<script src="/js/topbar.js"></script>
 <script>
 
         // ════════════════════════════════════════════════════════
-        // AUTH STATE
+        // PRICING-SPECIFIC: Stripe checkout + auth modals
+        // Auth state and UI are handled by topbar.js
         // ════════════════════════════════════════════════════════
-        let authToken = localStorage.getItem('dc_token');
-        let currentUser = null;
 
-        function updateUI() {
-            const authDiv = document.getElementById('topbar-auth');
-            const userDiv = document.getElementById('topbar-user');
-            const nameSpan = document.getElementById('user-name');
-            const avatarImg = document.getElementById('user-avatar');
-            const genSpan = document.getElementById('user-generations');
-
-            if (authToken && currentUser) {
-                authDiv.style.display = 'none';
-                userDiv.style.display = 'flex';
-                nameSpan.textContent = currentUser.name;
-                genSpan.textContent = (currentUser.remaining || '?') + '/' + (currentUser.monthly_limit || 3);
-                avatarImg.src = currentUser.avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="%23e8e8ed"/><text x="16" y="21" text-anchor="middle" font-size="16" fill="%2386868b">' + (currentUser.name ? currentUser.name.charAt(0).toUpperCase() : '?') + '</text></svg>';
-            } else {
-                authDiv.style.display = 'flex';
-                userDiv.style.display = 'none';
-            }
-        }
-
-        // ── Stripe Checkout ──────────────────────────────────────
         let pendingCheckoutPlan = null;
 
+        function getToken() { return localStorage.getItem('dc_token'); }
+
         async function checkout(plan) {
-            // Se non autenticato, mostra la modale e ricorda il piano
-            if (!authToken || !currentUser) {
+            const token = getToken();
+            if (!token) {
                 pendingCheckoutPlan = plan;
                 showModal('register');
                 return;
             }
 
             try {
-                const btn = document.querySelector('.plan' + (plan === 'pro' ? '.featured' : ':not(.featured):not(:first-child)') + ' .btn-cta');
-                // Più semplice: trova tutti i btn-cta
                 const btns = document.querySelectorAll('.btn-cta');
                 let targetBtn = null;
                 for (const b of btns) {
@@ -577,7 +605,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken,
+                        'Authorization': 'Bearer ' + token,
                     },
                     body: JSON.stringify({ plan }),
                 });
@@ -586,24 +614,14 @@
                 if (targetBtn) targetBtn.textContent = 'Inizia Ora';
 
                 if (data.url) {
-                    // Primo acquisto: redirect a Stripe Checkout
                     window.location.href = data.url;
                 } else if (data.upgraded) {
-                    // Upgrade diretto: aggiorna UI e mostra banner
-                    if (currentUser) {
-                        currentUser.plan = data.plan;
-                        currentUser.monthly_limit = data.monthly_limit;
-                        currentUser.remaining = data.remaining;
-                        if (typeof updateUI === 'function') updateUI();
-                        if (typeof navigateTo === 'function') navigateTo('dashboard');
-                    }
+                    if (typeof topbarUpdateUI === 'function') topbarUpdateUI();
                     alert('✅ Passato al piano ' + (data.plan === 'pro' ? 'Pro' : 'Base') + '!');
-                    if (typeof loadDashboard === 'function') setTimeout(loadDashboard, 300);
+                    window.location.href = '/';
                 } else if (data.scheduled) {
-                    // Downgrade programmato: piano attuale resta attivo
-                    alert('📅 ' + (data.message || 'Passaggio programmato. Il tuo piano attuale resta attivo fino alla scadenza.'));
-                    if (typeof navigateTo === 'function') navigateTo('dashboard');
-                    if (typeof loadDashboard === 'function') setTimeout(loadDashboard, 300);
+                    alert('📅 ' + (data.message || 'Passaggio programmato. Il piano attuale resta attivo fino alla scadenza.'));
+                    window.location.href = '/';
                 } else {
                     alert(data.error || 'Errore creazione pagamento');
                 }
@@ -612,7 +630,6 @@
             }
         }
 
-        // Dopo login/register riuscito, se c'era un checkout in attesa, procedi
         function afterAuthSuccess() {
             if (pendingCheckoutPlan) {
                 const plan = pendingCheckoutPlan;
@@ -620,6 +637,7 @@
                 checkout(plan);
             }
         }
+
         function showModal(type) {
             const ml = document.getElementById('modal-login');
             const mr = document.getElementById('modal-register');
@@ -631,7 +649,7 @@
             if (le) le.classList.remove('show');
             const re = document.getElementById('reg-error');
             if (re) re.classList.remove('show');
-            setTimeout(() => renderGoogleButton(type), 200);
+            setTimeout(function () { renderGoogleButton(type); }, 200);
         }
 
         function closeModal() {
@@ -659,17 +677,17 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ credential: response.credential }),
             })
-            .then(r => r.json())
-            .then(data => {
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
                 if (data.error) { alert(data.error); return; }
-                authToken = data.token;
-                currentUser = data.user;
-                localStorage.setItem('dc_token', authToken);
+                localStorage.setItem('dc_token', data.token);
                 closeModal();
-                updateUI();
+                if (typeof topbarUpdateUI === 'function') topbarUpdateUI();
+                // Reload to refresh auth state in topbar
+                setTimeout(function () { window.location.reload(); }, 300);
                 afterAuthSuccess();
             })
-            .catch(err => alert('Errore Google: ' + err.message));
+            .catch(function (err) { alert('Errore Google: ' + err.message); });
         }
 
         function login() {
@@ -686,18 +704,17 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: e, password: p }),
             })
-            .then(r => r.json())
-            .then(data => {
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
                 if (btn) btn.textContent = 'Accedi';
                 if (data.error) return showError(data.error, 'login');
-                authToken = data.token;
-                currentUser = data.user;
-                localStorage.setItem('dc_token', authToken);
+                localStorage.setItem('dc_token', data.token);
                 closeModal();
-                updateUI();
+                if (typeof topbarUpdateUI === 'function') topbarUpdateUI();
+                setTimeout(function () { window.location.reload(); }, 300);
                 afterAuthSuccess();
             })
-            .catch(err => {
+            .catch(function (err) {
                 if (btn) btn.textContent = 'Accedi';
                 showError('Errore: ' + err.message, 'login');
             });
@@ -722,28 +739,20 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: n, email: e, password: p, marketing_consent: mc }),
             })
-            .then(r => r.json())
-            .then(data => {
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
                 if (btn) btn.textContent = 'Crea Account';
                 if (data.error) return showError(data.error, 'reg');
-                authToken = data.token;
-                currentUser = data.user;
-                localStorage.setItem('dc_token', authToken);
+                localStorage.setItem('dc_token', data.token);
                 closeModal();
-                updateUI();
+                if (typeof topbarUpdateUI === 'function') topbarUpdateUI();
+                setTimeout(function () { window.location.reload(); }, 300);
                 afterAuthSuccess();
             })
-            .catch(err => {
+            .catch(function (err) {
                 if (btn) btn.textContent = 'Crea Account';
                 showError('Errore: ' + err.message, 'reg');
             });
-        }
-
-        function logout() {
-            authToken = null;
-            currentUser = null;
-            localStorage.removeItem('dc_token');
-            window.location.href = '/';
         }
 
         function showError(msg, form) {
@@ -762,24 +771,6 @@
             }
         }
         initGoogle();
-
-        if (authToken) {
-            fetch('/api/me', {
-                headers: { 'Authorization': 'Bearer ' + authToken }
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.user) {
-                    currentUser = data.user;
-                    updateUI();
-                } else {
-                    localStorage.removeItem('dc_token');
-                }
-            })
-            .catch(() => {
-                localStorage.removeItem('dc_token');
-            });
-        }
 
     </script>
 <!-- ── Cookie Banner ── -->
