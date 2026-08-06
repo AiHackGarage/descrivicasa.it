@@ -21,6 +21,13 @@ app.use('/api/stripe', stripeRouter);
 
 app.use(express.json());
 app.use('/media/uploads', express.static(UPLOAD_DIR));
+
+// Serve JS with no-cache to prevent stale ES module imports after deploy
+app.use('/js', (req, res, next) => {
+  res.set('Cache-Control', 'no-cache');
+  next();
+});
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(securityHeaders);
 
