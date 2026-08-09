@@ -1,6 +1,28 @@
-const { extractTitle, slugify, injectContacts, cleanForPdf, propertyTypeLabel, buildMetaDescription } = require('../src/utils/text');
+const { normalizePhotos, extractTitle, slugify, injectContacts, cleanForPdf, propertyTypeLabel, buildMetaDescription } = require('../src/utils/text');
 
 describe('Text Utils', () => {
+  describe('normalizePhotos', () => {
+    test('returns array as-is', () => {
+      expect(normalizePhotos(['a', 'b'])).toEqual(['a', 'b']);
+    });
+
+    test('parses JSON string', () => {
+      expect(normalizePhotos('["/media/x.jpg"]')).toEqual(['/media/x.jpg']);
+    });
+
+    test('returns empty array for null/undefined', () => {
+      expect(normalizePhotos(null)).toEqual([]);
+      expect(normalizePhotos(undefined)).toEqual([]);
+    });
+
+    test('returns empty array for invalid JSON', () => {
+      expect(normalizePhotos('not-json')).toEqual([]);
+    });
+
+    test('returns empty array for non-array JSON', () => {
+      expect(normalizePhotos('{"x":1}')).toEqual([]);
+    });
+  });
   describe('extractTitle', () => {
     test('estracts title from 🏡 marker', () => {
       const desc = '🏡 Appartamento luminoso in zona Prati\n\n📝 Descrizione...';

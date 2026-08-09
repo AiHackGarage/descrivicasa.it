@@ -3,7 +3,7 @@ const path = require('path');
 const PDFDocument = require('pdfkit');
 const pool = require('../db/pool');
 const { UPLOAD_DIR } = require('../config');
-const { injectContacts, cleanForPdf, propertyTypeLabel } = require('../utils/text');
+const { injectContacts, cleanForPdf, propertyTypeLabel, normalizePhotos } = require('../utils/text');
 const { resizeForPdf } = require('./image');
 
 async function generatePdf(req, res) {
@@ -103,9 +103,10 @@ async function generatePdf(req, res) {
     // Photos
     let photoPaths = [];
     try {
-      const rawPhotos = p.photos || '[]';
-      const photos = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
-      photoPaths = photos.map(url => path.join(UPLOAD_DIR, path.basename(url))).filter(fs.existsSync);
+      const photos = normalizePhotos(p.photos);
+      if (Array.isArray(photos)) {
+        photoPaths = photos.map(url => path.join(UPLOAD_DIR, path.basename(url))).filter(fs.existsSync);
+      }
     } catch (_) {}
 
     if (photoPaths.length > 0) {

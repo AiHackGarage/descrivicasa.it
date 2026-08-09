@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../db/pool');
-const { injectContacts } = require('../utils/text');
+const { injectContacts, normalizePhotos } = require('../utils/text');
 const { generatePdf } = require('../services/pdf');
 const { serverError } = require('../utils/errors');
 
@@ -21,7 +21,8 @@ router.get('/p/:uuid', async (req, res) => {
     p.agent_name = p.agent_name || p.user_name;
     p.agent_email = p.agent_email || p.user_email;
     p.agent_phone = p.agent_phone || null;
-    p.photos = p.photos || [];
+    // Normalize photos: parse JSON string if needed
+    p.photos = normalizePhotos(p.photos);
     p.elevator = !!p.elevator;
     p.air_conditioning = !!p.air_conditioning;
     p.parking = !!p.parking;

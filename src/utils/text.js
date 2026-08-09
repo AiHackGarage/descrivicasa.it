@@ -1,5 +1,16 @@
 // Text utilities: title extraction, slugify, contact injection, PDF cleaning, property labels
 
+function normalizePhotos(raw) {
+  try {
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    return [];
+  } catch (_) { return []; }
+}
+
 function extractTitle(description, property) {
   if (!description) return null;
   const match = description.match(/🏡\s*(.+?)(?:\n\n📝|\n📝|$)/s);
@@ -86,4 +97,4 @@ function buildMetaDescription(property) {
   return parts.join(' — ').substring(0, 160);
 }
 
-module.exports = { extractTitle, slugify, injectContacts, cleanForPdf, propertyTypeLabel, buildMetaDescription };
+module.exports = { normalizePhotos, extractTitle, slugify, injectContacts, cleanForPdf, propertyTypeLabel, buildMetaDescription };

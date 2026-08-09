@@ -9,7 +9,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { describePropertyWithData } = require('../services/ai/vision');
 const { processUploadedFiles } = require('../services/image');
 const { checkGenerationLimit } = require('../utils/limits');
-const { extractTitle, injectContacts } = require('../utils/text');
+const { extractTitle, injectContacts, normalizePhotos } = require('../utils/text');
 const { serverError, aiError } = require('../utils/errors');
 const { validate } = require('../utils/validate');
 const { propertyDataSchema } = require('../utils/schemas');
@@ -83,8 +83,7 @@ router.get('/', authMiddleware, async (req, res) => {
     );
     // Normalize: ensure photos is always a parsed array & booleans are real booleans
     for (const r of rows) {
-      if (typeof r.photos === 'string') { try { r.photos = JSON.parse(r.photos); } catch (_) { r.photos = []; } }
-      if (!Array.isArray(r.photos)) r.photos = [];
+      r.photos = normalizePhotos(r.photos);
       r.elevator = !!r.elevator;
       r.air_conditioning = !!r.air_conditioning;
       r.parking = !!r.parking;
@@ -124,8 +123,8 @@ router.put('/:id', authMiddleware, upload.array('files', 10), async (req, res) =
     const [existing] = await pool.query('SELECT photos FROM properties WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (existing.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
 
-    let existingPhotos = [];
-    try { existingPhotos = existing[0].photos || []; } catch (_) {}
+    // Normalize existing photos: parse JSON string if needed
+    let existingPhotos = normalizePhotos(existing[0].photos);
 
     if (req.files && req.files.length > 0) {
       await processUploadedFiles(req.files);
@@ -203,7 +202,8 @@ router.post('/:id/generate', authMiddleware, upload.array('files', 10), async (r
     if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
 
     const property = rows[0];
-    let photos = property.photos || [];
+    // Normalize photos: parse JSON string if needed, guarantee array
+    let photos = normalizePhotos(property.photos);
 
     if (req.files && req.files.length > 0) {
       await processUploadedFiles(req.files);
