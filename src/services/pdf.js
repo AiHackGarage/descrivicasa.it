@@ -31,76 +31,83 @@ async function generatePdf(req, res) {
       ? `€ ${Number(p.price || 0).toLocaleString('it-IT')}/mese`
       : `€ ${Number(p.price || 0).toLocaleString('it-IT')}`;
 
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="descrizione-${p.uuid}.pdf"`);
 
-    // Handle stream errors
-    doc.on('error', (err) => {
+    doc.on('error', () => {
       if (!res.headersSent) res.status(500).json({ error: 'Errore generazione PDF' });
       else res.end();
     });
-
     doc.pipe(res);
 
     const primary = '#667eea';
     const dark = '#1d1d1f';
     const grey = '#86868b';
     const lightBg = '#f5f5f7';
+    const W = 495; // usable width (A4 595 - 2*50 margins)
 
-    // Header
-    doc.fontSize(22).font('Helvetica-Bold').fillColor(primary).text('DescriviCasa.it', { align: 'center' });
+    // ═══════════════════════════════════════════
+    // PAGE 1: Header + Title + Features + Gallery
+    // ═══════════════════════════════════════════
+
+    // Header (subtle)
+    doc.fontSize(10).font('Helvetica').fillColor(grey)
+       .text('DescriviCasa.it — Descrizione Immobiliare Professionale', { align: 'left' });
     doc.moveDown(0.3);
-    doc.fontSize(9).font('Helvetica').fillColor(grey).text('Descrizione Immobiliare Professionale', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(primary).lineWidth(1).stroke();
-    doc.moveDown(0.8);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(primary).lineWidth(1.5).stroke();
+    doc.moveDown(0.6);
 
-    // Title + Price
-    doc.fontSize(18).font('Helvetica-Bold').fillColor(dark).text(title, { align: 'left' });
+    // Title big
+    doc.fontSize(20).font('Helvetica-Bold').fillColor(dark).text(title, { align: 'left' });
     doc.moveDown(0.2);
-    doc.fontSize(14).font('Helvetica-Bold').fillColor(primary).text(priceText);
-    doc.moveDown(0.3);
 
+    // Price
+    doc.fontSize(16).font('Helvetica-Bold').fillColor(primary).text(priceText, { continued: false });
+    doc.moveDown(0.1);
+
+    // Address
     const addrParts = [p.address, p.city, p.province].filter(Boolean);
     if (addrParts.length > 0) {
       doc.fontSize(10).font('Helvetica').fillColor(grey).text(addrParts.join(', '));
     }
-    doc.moveDown(0.6);
+    doc.moveDown(0.5);
 
-    // Features box
-    doc.roundedRect(50, doc.y, 495, 10, 4).fill(lightBg);
-    doc.moveDown(0.3);
-
-    const features = [
-      p.surface ? `Superficie: ${p.surface} mq` : null,
-      p.rooms ? `Locali: ${p.rooms}` : null,
-      p.bedrooms ? `Camere: ${p.bedrooms}` : null,
-      p.bathrooms ? `Bagni: ${p.bathrooms}` : null,
-      p.energy_class ? `Classe energetica: ${p.energy_class}` : null,
-      p.building_state ? `Stato: ${p.building_state}` : null,
-      p.heating ? `Riscaldamento: ${p.heating}` : null,
-      p.furnished && p.furnished !== 'no' ? `Arredato: ${p.furnished}` : null,
-      p.floor !== null && p.floor !== undefined ? `Piano: ${p.floor}${p.total_floors ? '/' + p.total_floors : ''}` : null,
+    // Features: single-line chips
+    const chips = [
+      p.surface ? `${p.surface} mq` : null,
+      p.rooms ? `${p.rooms} locali` : null,
+      p.bedrooms ? `${p.bedrooms} camere` : null,
+      p.bathrooms ? `${p.bathrooms} bagni` : null,
+      p.energy_class ? `Cl. en. ${p.energy_class}` : null,
+      p.building_state ? p.building_state : null,
+      p.heating ? p.heating : null,
+      p.floor !== null && p.floor !== undefined ? `Piano ${p.floor}${p.total_floors ? '/' + p.total_floors : ''}` : null,
+      p.furnished && p.furnished !== 'no' ? `Arredato` : null,
     ].filter(Boolean);
 
-    if (features.length > 0) {
-      const colWidth = 230;
+    if (chips.length > 0) {
+      const chipH = 20;
+      const chipPadding = 12;
       const startY = doc.y;
-      features.forEach((f, i) => {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const bx = 50 + col * (colWidth + 35);
-        const by = startY + row * 18;
-        doc.fontSize(9).font('Helvetica').fillColor(dark).text(`• ${f}`, bx, by, { width: colWidth });
+      let x = 50;
+
+      chips.forEach((c) => {
+        const w = doc.widthOfString(c) + chipPadding * 2;
+        if (x + w > 545) { x = 50; doc.y += chipH + 6; }
+        doc.roundedRect(x, doc.y, w, chipH, 4).fill(lightBg);
+        doc.fontSize(8.5).font('Helvetica').fillColor(dark)
+           .text(c, x + chipPadding, doc.y + (chipH - 8.5) / 2, { width: w - chipPadding * 2 });
+        x += w + 8;
       });
-      doc.moveDown(features.length > 1 ? Math.ceil(features.length / 2) * 0.8 + 0.3 : 0.8);
+      doc.y = startY + Math.ceil((x > 545 ? 1 : 0) + 1) * (chipH + 6) + 6;
     }
 
-    doc.moveTo(50, doc.y + 5).lineTo(545, doc.y + 5).strokeColor('#e8e8ed').lineWidth(0.5).stroke();
+    doc.moveDown(0.4);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e8e8ed').lineWidth(0.5).stroke();
     doc.moveDown(0.6);
 
-    // Photos
+    // Gallery — 2-column grid
     let photoPaths = [];
     try {
       const photos = normalizePhotos(p.photos);
@@ -110,47 +117,83 @@ async function generatePdf(req, res) {
     } catch (_) {}
 
     if (photoPaths.length > 0) {
-      doc.fontSize(12).font('Helvetica-Bold').fillColor(dark).text('Galleria');
-      doc.moveDown(0.4);
       const imgW = 235;
-      const imgH = 155;
+      const imgH = 160;
       const gap = 25;
       let imgY = doc.y;
+
       for (let i = 0; i < photoPaths.length; i++) {
         const col = i % 2;
         const row = Math.floor(i / 2);
         const ix = 50 + col * (imgW + gap);
-        const iy = imgY + row * (imgH + 12);
-        if (iy + imgH > doc.page.height - 55) {
+        const iy = imgY + row * (imgH + 10);
+
+        if (iy + imgH > doc.page.height - 60) {
           doc.addPage();
-          imgY = doc.y;
-          const newIy = imgY + Math.floor(i / 2) * (imgH + 12);
+          imgY = 60;
+          const newIy = imgY + Math.floor((i % photoPaths.length) / 2) * (imgH + 10);
           const newIx = 50 + (i % 2) * (imgW + gap);
           const imgBuf = await resizeForPdf(photoPaths[i]);
-          if (imgBuf) doc.image(imgBuf, newIx, newIy, { width: imgW, height: imgH });
+          if (imgBuf) doc.image(imgBuf, newIx, newIy, { width: imgW, height: imgH }).strokeColor('#e8e8ed').lineWidth(0.3).stroke();
         } else {
           const imgBuf = await resizeForPdf(photoPaths[i]);
-          if (imgBuf) doc.image(imgBuf, ix, iy, { width: imgW, height: imgH });
+          if (imgBuf) doc.image(imgBuf, ix, iy, { width: imgW, height: imgH }).strokeColor('#e8e8ed').lineWidth(0.3).stroke();
         }
       }
       const rows = Math.ceil(photoPaths.length / 2);
-      doc.y = imgY + rows * (imgH + 12) + 8;
+      doc.y = imgY + rows * (imgH + 10) + 15;
     }
 
-    // Description
-    doc.fontSize(12).font('Helvetica-Bold').fillColor(dark).text('Descrizione');
+    // ═══════════════════════════════════════════
+    // PAGE 2: Description — full width, clean
+    // ═══════════════════════════════════════════
+    doc.addPage();
+
+    // Page header
+    doc.fontSize(10).font('Helvetica').fillColor(grey)
+       .text('DescriviCasa.it — Descrizione Immobiliare Professionale', { align: 'left' });
     doc.moveDown(0.3);
-    doc.fontSize(10).font('Helvetica').fillColor('#333').text(description || 'Descrizione in preparazione.', {
-      lineGap: 4,
-      align: 'justify',
-    });
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(primary).lineWidth(1).stroke();
+    doc.moveDown(0.6);
+
+    // Re-print title small
+    doc.fontSize(12).font('Helvetica-Bold').fillColor(dark).text(title);
+    doc.fontSize(11).font('Helvetica').fillColor(grey).text(priceText);
+    doc.moveDown(0.6);
+
+    // Description header
+    doc.fontSize(14).font('Helvetica-Bold').fillColor(primary).text('Descrizione');
+    doc.moveDown(0.4);
+
+    // Description body — full width, justified
+    if (description) {
+      const paragraphs = description.split(/\n\n+/).filter(Boolean);
+      paragraphs.forEach((para) => {
+        // Clean section headers (remove emoji, keep text)
+        let text = para.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}\u{2300}-\u{23FF}]/gu, '').trim();
+        if (!text) return;
+        // Check if it's a section header
+        const isHeader = /^[A-Z\s]{3,}/.test(text) && text.length < 50;
+        doc.fontSize(isHeader ? 11 : 10)
+           .font(isHeader ? 'Helvetica-Bold' : 'Helvetica')
+           .fillColor(isHeader ? dark : '#333')
+           .text(text, {
+             width: W,
+             align: isHeader ? 'left' : 'justify',
+             lineGap: isHeader ? 3 : 4,
+             paragraphGap: isHeader ? 6 : 3,
+           });
+      });
+    } else {
+      doc.fontSize(10).font('Helvetica').fillColor(grey)
+         .text('Descrizione in preparazione.', { width: W, align: 'center' });
+    }
 
     doc.end();
   } catch (err) {
     if (!res.headersSent) {
       res.status(500).json({ error: 'Errore generazione PDF: ' + err.message });
     } else {
-      // Headers already sent, try to end the response gracefully
       try { res.end(); } catch (_) {}
     }
   }
