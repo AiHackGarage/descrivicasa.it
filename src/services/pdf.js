@@ -34,6 +34,13 @@ async function generatePdf(req, res) {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="descrizione-${p.uuid}.pdf"`);
+
+    // Handle stream errors
+    doc.on('error', (err) => {
+      if (!res.headersSent) res.status(500).json({ error: 'Errore generazione PDF' });
+      else res.end();
+    });
+
     doc.pipe(res);
 
     const primary = '#667eea';
@@ -42,18 +49,15 @@ async function generatePdf(req, res) {
     const lightBg = '#f5f5f7';
 
     doc.on('pageAdded', () => {
-      const savedFont = doc._font;
-      const savedSize = doc._fontSize;
-      const savedFill = doc._fillColor;
-      doc.fontSize(8).font('Helvetica').fillColor(grey)
+      // Reset to safe defaults first, then draw footer
+      doc.font('Helvetica').fontSize(8).fillColor(grey)
          .text(
            `DescriviCasa.it — Generato con AI il ${new Date().toLocaleDateString('it-IT')}`,
            50, doc.page.height - 40,
            { align: 'center', width: 495 }
          );
-      if (savedFont) doc.font(savedFont);
-      if (savedSize) doc.fontSize(savedSize);
-      if (savedFill) doc.fillColor(savedFill);
+      // Reset for continued content
+      doc.font('Helvetica').fontSize(10).fillColor(dark);
     });
 
     // Header
@@ -155,7 +159,10 @@ async function generatePdf(req, res) {
     doc.end();
   } catch (err) {
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Errore interno del server' });
+      res.status(500).json({ error: 'Errore generazione PDF: ' + err.message });
+    } else {
+      // Headers already sent, try to end the response gracefully
+      try { res.end(); } catch (_) {}
     }
   }
 }
