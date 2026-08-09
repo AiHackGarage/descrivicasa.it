@@ -15,4 +15,17 @@ function securityHeaders(req, res, next) {
   next();
 }
 
-module.exports = { securityHeaders };
+// CSRF check for state-changing requests (POST/PUT/PATCH/DELETE on /api)
+function csrfProtection(req, res, next) {
+  if (['POST','PUT','PATCH','DELETE'].includes(req.method) && req.path.startsWith('/api')) {
+    const origin = req.get('origin');
+    const referer = req.get('referer');
+    const host = req.get('host');
+    if (origin && !origin.endsWith(host) && !host.endsWith(origin.replace(/^https?:\/\//, ''))) {
+      return res.status(403).json({ error: 'CSRF check failed' });
+    }
+  }
+  next();
+}
+
+module.exports = { securityHeaders, csrfProtection };

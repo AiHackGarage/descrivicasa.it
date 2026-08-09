@@ -3,8 +3,9 @@ const path = require('path');
 
 const { PORT, UPLOAD_DIR } = require('./config');
 const { initDatabase } = require('./db/schema');
-const { securityHeaders } = require('./middleware/security');
+const { securityHeaders, csrfProtection } = require('./middleware/security');
 const { errorHandler } = require('./middleware/errorHandler');
+const { generalLimiter } = require('./middleware/rateLimit');
 
 const stripeRouter = require('./routes/stripe');
 const authRouter = require('./routes/auth');
@@ -30,6 +31,8 @@ app.use('/js', (req, res, next) => {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(securityHeaders);
+app.use(csrfProtection);
+app.use('/api', generalLimiter);
 
 app.use('/api', authRouter);
 app.use('/api/properties', propertiesRouter);

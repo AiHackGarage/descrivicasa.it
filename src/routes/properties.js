@@ -78,9 +78,19 @@ router.post('/', authMiddleware, upload.array('files', 10), async (req, res) => 
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, uuid, contract_type, property_type, address, city, province, surface, rooms, bathrooms, price, status, is_public, title, photos, description IS NOT NULL AS has_description, created_at, updated_at FROM properties WHERE user_id = ? ORDER BY updated_at DESC',
+      'SELECT id, uuid, contract_type, property_type, address, city, province, zone, surface, rooms, bedrooms, bathrooms, price, status, is_public, title, photos, description IS NOT NULL AS has_description, created_at, updated_at FROM properties WHERE user_id = ? ORDER BY updated_at DESC',
       [req.user.id]
     );
+    // Normalize: ensure photos is always a parsed array & booleans are real booleans
+    for (const r of rows) {
+      if (typeof r.photos === 'string') { try { r.photos = JSON.parse(r.photos); } catch (_) { r.photos = []; } }
+      if (!Array.isArray(r.photos)) r.photos = [];
+      r.elevator = !!r.elevator;
+      r.air_conditioning = !!r.air_conditioning;
+      r.parking = !!r.parking;
+      r.basement = !!r.basement;
+      r.is_public = !!r.is_public;
+    }
     res.json({ properties: rows });
   } catch (err) {
     serverError(err, res, 'List properties');

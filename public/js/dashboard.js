@@ -29,21 +29,22 @@ export function renderDashboard() {
 
     // Read filter values
     const q = (document.getElementById('filter-search')?.value || '').toLowerCase().trim();
+    const terms = q ? q.split(/\s+/).filter(t => t.length > 0) : [];
     const priceMin = parseFloat(document.getElementById('filter-price-min')?.value) || 0;
     const priceMax = parseFloat(document.getElementById('filter-price-max')?.value) || 0;
     const zone = (document.getElementById('filter-zone')?.value || '').toLowerCase().trim();
     const dateDays = parseInt(document.getElementById('filter-date')?.value) || 0;
 
     // Apply filters
-    if (q || priceMin || priceMax || zone || dateDays) {
+    if (terms.length || priceMin || priceMax || zone || dateDays) {
         const cutoff = dateDays ? Date.now() - dateDays * 86400000 : 0;
         arr = arr.filter(p => {
-            if (q) {
+            if (terms.length) {
                 const haystack = [
-                    p.address, p.city, p.province, p.title, p.property_type,
-                    p.description, p.contract_type
+                    p.address, p.city, p.province, p.zone, p.title, p.property_type,
+                    p.description, p.contract_type, p.agent_name
                 ].filter(Boolean).join(' ').toLowerCase();
-                if (!haystack.includes(q)) return false;
+                if (!terms.every(t => haystack.includes(t))) return false;
             }
             const pVal = parseFloat(p.price) || 0;
             if (priceMin && pVal < priceMin) return false;
@@ -68,11 +69,19 @@ export function renderDashboard() {
     let html = '<div class="property-grid">';
     arr.forEach(p => {
         const price = p.contract_type === 'rent' ? '€ ' + (p.price || 0) + '/mese' : '€ ' + (p.price || 0);
-        const pht = typeof p.photos === 'string' ? (() => { try { return JSON.parse(p.photos); } catch (e) { return []; } })() : (p.photos || []);
+        const pht = (() => {
+            try { const raw = Array.isArray(p.photos) ? p.photos : (typeof p.photos === 'string' ? JSON.parse(p.photos) : []); return Array.isArray(raw) ? raw : []; }
+            catch (_) { return []; }
+        })();
         const imgSrc = pht.length > 0 ? pht[0] : '';
         const address = p.address || p.city || 'Indirizzo non specificato';
         html += '<div class="property-card" onclick="window.location.href=\'' + propertyUrl(p.uuid || p.id, p.title) + '\'">';
-        html += imgSrc ? '<img class="property-card-img" src="' + imgSrc + '" alt="">' : '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;color:#86868b;font-size:2rem">🏠</div>';
+        if (imgSrc) {
+            html += '<img class="property-card-img" src="' + imgSrc + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">';
+            html += '<div class="card-fallback property-card-img" style="display:none;align-items:center;justify-content:center;background:#e8e8ed;color:#86868b;font-size:2rem">🏠</div>';
+        } else {
+            html += '<div class="property-card-img" style="display:flex;align-items:center;justify-content:center;background:#e8e8ed;color:#86868b;font-size:2rem">🏠</div>';
+        }
         html += '<div class="property-card-body">';
         html += '<div class="property-card-price">' + price + '</div>';
         html += '<div class="property-card-address">' + escapeHtml(address) + '</div>';
