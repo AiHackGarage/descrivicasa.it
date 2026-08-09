@@ -88,19 +88,32 @@ async function generatePdf(req, res) {
 
     if (chips.length > 0) {
       const chipH = 20;
-      const chipPadding = 12;
+      const chipPadding = 10;
+      const chipGap = 7;
+      const fontSize = 8;
       const startY = doc.y;
+      let rowY = startY;
       let x = 50;
 
       chips.forEach((c) => {
         const w = doc.widthOfString(c) + chipPadding * 2;
-        if (x + w > 545) { x = 50; doc.y += chipH + 6; }
-        doc.roundedRect(x, doc.y, w, chipH, 4).fill(lightBg);
-        doc.fontSize(8.5).font('Helvetica').fillColor(dark)
-           .text(c, x + chipPadding, doc.y + (chipH - 8.5) / 2, { width: w - chipPadding * 2 });
-        x += w + 8;
+        if (x + w > 545) {
+          x = 50;
+          rowY += chipH + chipGap;
+        }
+        doc.roundedRect(x, rowY, w, chipH, 3).fill(lightBg);
+        // Center text vertically: text baseline ≈ font size from top
+        const textY = rowY + chipH / 2 + fontSize / 3;
+        doc.fontSize(fontSize).font('Helvetica').fillColor(dark)
+           .text(c, x + chipPadding, textY, {
+             width: w - chipPadding * 2,
+             height: chipH,
+             lineBreak: false,
+           });
+        x += w + chipGap;
       });
-      doc.y = startY + Math.ceil((x > 545 ? 1 : 0) + 1) * (chipH + 6) + 6;
+
+      doc.y = rowY + chipH + 10;
     }
 
     doc.moveDown(0.4);
