@@ -48,18 +48,6 @@ async function generatePdf(req, res) {
     const grey = '#86868b';
     const lightBg = '#f5f5f7';
 
-    doc.on('pageAdded', () => {
-      // Reset to safe defaults first, then draw footer
-      doc.font('Helvetica').fontSize(8).fillColor(grey)
-         .text(
-           `DescriviCasa.it — Generato con AI il ${new Date().toLocaleDateString('it-IT')}`,
-           50, doc.page.height - 40,
-           { align: 'center', width: 495 }
-         );
-      // Reset for continued content
-      doc.font('Helvetica').fontSize(10).fillColor(dark);
-    });
-
     // Header
     doc.fontSize(22).font('Helvetica-Bold').fillColor(primary).text('DescriviCasa.it', { align: 'center' });
     doc.moveDown(0.3);
