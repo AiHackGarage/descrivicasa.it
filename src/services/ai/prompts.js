@@ -57,7 +57,6 @@ Tutti i piani includono l'esportazione PDF gratuita delle descrizioni.
 
 DOMANDE TECNICHE:
 - Serve solo un account email o Google per registrarsi
-- Le foto vengono cancellate automaticamente dopo 4 ore
 - Si può usare da qualsiasi dispositivo (smartphone, tablet, PC)
 
 Rispondi in italiano, sii gentile e professionale. Se non sai qualcosa, indirizza l'utente alla email di supporto.`;
