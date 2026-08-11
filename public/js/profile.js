@@ -19,8 +19,6 @@ export function loadProfile() {
     const planNames = { free: 'Free', base: 'Base — €9/mese', pro: 'Pro — €29/mese' };
     document.getElementById('profile-plan').textContent = planNames[window.currentUser.plan] || 'Free';
     const limit = window.currentUser.monthly_limit || 3;
-    const used = (window.currentUser.remaining !== undefined) ? (limit - window.currentUser.remaining) : 0;
-    document.getElementById('profile-remaining').textContent = used + '/' + limit;
     // Mostra Rinnovo solo per piani a pagamento
     const renewalRow = document.getElementById('profile-renewal-row');
     if (window.currentUser.plan === 'base' || window.currentUser.plan === 'pro') {
@@ -31,10 +29,6 @@ export function loadProfile() {
     } else {
         if (renewalRow) renewalRow.style.display = 'none';
     }
-    if (window.currentUser.created_at) {
-        const d = new Date(window.currentUser.created_at);
-        document.getElementById('profile-since').textContent = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
-    } else { document.getElementById('profile-since').textContent = '—'; }
     // Mostra/nascondi pulsante gestione abbonamento
     const manageBtn = document.getElementById('profile-btn-manage');
     const pricingBtn = document.getElementById('profile-btn-pricing');
@@ -85,7 +79,7 @@ export function loadHistory() {
     .then(data => {
         loading.style.display = 'none';
         if (data.history && data.history.length > 0) {
-            data.history.slice(0, 5).forEach(h => {
+            data.history.slice(0, 3).forEach(h => {
                 const d = new Date(h.created_at);
                 const dateStr = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
                 const div = document.createElement('div');

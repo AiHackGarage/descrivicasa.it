@@ -102,11 +102,6 @@
     var planEl = document.getElementById('profile-plan');
     if (planEl) planEl.textContent = planNames[currentUser.plan] || 'Free';
 
-    var limit = currentUser.monthly_limit || 3;
-    var used = (currentUser.remaining !== undefined) ? (limit - currentUser.remaining) : 0;
-    var remEl = document.getElementById('profile-remaining');
-    if (remEl) remEl.textContent = used + '/' + limit;
-
     // Renewal row: visible only for paid plans
     var renewalRow = document.getElementById('profile-renewal-row');
     if (renewalRow) {
@@ -119,12 +114,6 @@
       } else {
         renewalRow.style.display = 'none';
       }
-    }
-
-    if (currentUser.created_at) {
-      var d = new Date(currentUser.created_at);
-      var sinceEl = document.getElementById('profile-since');
-      if (sinceEl) sinceEl.textContent = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
     // Manage subscription button: only for paid plans
