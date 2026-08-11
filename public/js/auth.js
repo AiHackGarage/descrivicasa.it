@@ -73,7 +73,6 @@ export function updateUI() {
         // If on landing and logged in, go to dashboard
         if (window.currentView === 'landing') {
             import('./navigation.js').then(m => { m.navigateTo('dashboard'); });
-            import('./dashboard.js').then(m => { m.loadDashboard(); });
         }
     } else {
         authDiv.style.display = 'flex';
