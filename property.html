@@ -644,7 +644,7 @@ const uuid = pathParts[pathParts.length === 3 ? 1 : pathParts.length - 1];
                 // Agent
                 if (p.agent_name) {
                     document.getElementById('agent-name').textContent = p.agent_name;
-                    document.getElementById('agent-avatar').src = p.agent_avatar || '';
+                    document.getElementById('agent-avatar').src = p.agent_avatar || '/favicon.png';
                     document.getElementById('agent-email').textContent = p.agent_email || '';
                     document.getElementById('agent-email').href = 'mailto:' + (p.agent_email || '');
                     document.getElementById('agent-phone').textContent = p.agent_phone ? '📞 ' + p.agent_phone : '';
