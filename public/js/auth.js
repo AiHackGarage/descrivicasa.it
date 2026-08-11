@@ -54,7 +54,7 @@ export function updateUI() {
         nameSpan.textContent = window.currentUser.name;
         const remaining = window.currentUser.remaining !== undefined ? window.currentUser.remaining : '?';
         genSpan.textContent = remaining + '/' + (window.currentUser.monthly_limit || 3);
-        avatarImg.src = window.currentUser.avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="%23e8e8ed"/><text x="16" y="21" text-anchor="middle" font-size="16" fill="%2386868b">' + window.currentUser.name.charAt(0).toUpperCase() + '</text></svg>';
+        avatarImg.src = window.currentUser.avatar || '/favicon.png';
         // Disabilita pulsante Nuovo immobile se crediti esauriti
         const btnNew = document.getElementById('btn-new-property');
         if (btnNew) {

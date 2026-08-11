@@ -57,13 +57,7 @@
 
       var avatarEl = document.getElementById('user-avatar');
       if (avatarEl) {
-        avatarEl.src = currentUser.avatar ||
-          'data:image/svg+xml,' + encodeURIComponent(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
-            '<circle cx="16" cy="16" r="16" fill="#e8e8ed"/>' +
-            '<text x="16" y="21" text-anchor="middle" font-size="16" fill="#86868b">' +
-            (currentUser.name || '?').charAt(0).toUpperCase() + '</text></svg>'
-          );
+        avatarEl.src = currentUser.avatar || '/favicon.png';
       }
 
       var genEl = document.getElementById('user-generations');
