@@ -22,8 +22,8 @@ async function generatePdf(req, res) {
     p.agent_phone = p.agent_phone || null;
     let description = p.description || '';
     if (description) {
-      description = cleanForPdf(description);
       description = injectContacts(description, p);
+      description = cleanForPdf(description);
     }
 
     const title = p.title || `${propertyTypeLabel(p.property_type)}${p.city ? ' in ' + p.city : ''}`;
@@ -72,49 +72,6 @@ async function generatePdf(req, res) {
       doc.fontSize(10).font('Helvetica').fillColor(grey).text(addrParts.join(', '));
     }
     doc.moveDown(0.5);
-
-    // Features: single-line chips
-    const chips = [
-      p.surface ? `${p.surface} mq` : null,
-      p.rooms ? `${p.rooms} locali` : null,
-      p.bedrooms ? `${p.bedrooms} camere` : null,
-      p.bathrooms ? `${p.bathrooms} bagni` : null,
-      p.energy_class ? `Cl. en. ${p.energy_class}` : null,
-      p.building_state ? p.building_state : null,
-      p.heating ? p.heating : null,
-      p.floor !== null && p.floor !== undefined ? `Piano ${p.floor}${p.total_floors ? '/' + p.total_floors : ''}` : null,
-      p.furnished && p.furnished !== 'no' ? `Arredato` : null,
-    ].filter(Boolean);
-
-    if (chips.length > 0) {
-      const chipH = 20;
-      const chipPadding = 10;
-      const chipGap = 7;
-      const fontSize = 8;
-      const startY = doc.y;
-      let rowY = startY;
-      let x = 50;
-
-      chips.forEach((c) => {
-        const w = doc.widthOfString(c) + chipPadding * 2;
-        if (x + w > 545) {
-          x = 50;
-          rowY += chipH + chipGap;
-        }
-        doc.roundedRect(x, rowY, w, chipH, 3).fill(lightBg);
-        // Center text vertically: text baseline ≈ font size from top
-        const textY = rowY + chipH / 2 + fontSize / 3;
-        doc.fontSize(fontSize).font('Helvetica').fillColor(dark)
-           .text(c, x + chipPadding, textY, {
-             width: w - chipPadding * 2,
-             height: chipH,
-             lineBreak: false,
-           });
-        x += w + chipGap;
-      });
-
-      doc.y = rowY + chipH + 10;
-    }
 
     doc.moveDown(0.4);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e8e8ed').lineWidth(0.5).stroke();
