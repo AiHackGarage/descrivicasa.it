@@ -129,7 +129,7 @@ async function generatePdf(req, res) {
     // Re-print title small
     doc.fontSize(12).font('Helvetica-Bold').fillColor(dark).text(title);
     doc.fontSize(11).font('Helvetica').fillColor(grey).text(priceText);
-    doc.moveDown(0.6);
+    doc.moveDown(1);
 
     // Description header
     doc.fontSize(14).font('Helvetica-Bold').fillColor(primary).text('Descrizione');
@@ -180,29 +180,48 @@ async function generatePdf(req, res) {
     ].filter(Boolean);
 
     if (features.length > 0) {
-      // Check if we need a new page (at least 120px of space needed)
-      if (doc.y > doc.page.height - 180) doc.addPage();
+      // Check if we need a new page (at least 200px of space needed)
+      if (doc.y > doc.page.height - 200) doc.addPage();
 
       doc.moveDown(1);
       doc.fontSize(14).font('Helvetica-Bold').fillColor(primary).text('Caratteristiche');
-      doc.moveDown(0.4);
+      doc.moveDown(0.5);
 
       const colW = W / 2;
-      const rowH = 22;
-      let featY = doc.y;
+      const rowH = 30;
+      const padX = 14;
+      const padY = 8;
+      const boxTop = doc.y;
+      const boxRows = Math.ceil(features.length / 2);
+      const boxH = boxRows * rowH + padY * 2;
+
+      // Light background box
+      doc.rect(50, boxTop, W, boxH).fill(lightBg);
+
+      let featY = boxTop + padY;
       let col = 0;
 
       features.forEach(([label, value], i) => {
         const ix = 50 + col * colW;
         const iy = featY + Math.floor(i / 2) * rowH;
 
-        doc.fontSize(9).font('Helvetica').fillColor(grey).text(label, ix, iy + 2, { width: colW - 10, continued: false });
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(dark).text(value, ix, iy + 14, { width: colW - 10 });
+        doc.fontSize(9).font('Helvetica').fillColor(grey).text(label, ix + padX, iy + 1, { width: colW - padX * 2 });
+        doc.fontSize(10).font('Helvetica-Bold').fillColor(dark).text(value, ix + padX, iy + 13, { width: colW - padX * 2 });
 
         col = 1 - col;
       });
 
-      doc.y = featY + Math.ceil(features.length / 2) * rowH + 20;
+      // Thin horizontal separators between rows
+      for (let r = 1; r < boxRows; r++) {
+        const lineY = boxTop + padY + r * rowH;
+        doc.moveTo(50 + padX, lineY).lineTo(50 + W - padX, lineY).strokeColor('#e0e0e5').lineWidth(0.5).stroke();
+      }
+
+      // Thin vertical separator between columns
+      const midX = 50 + colW;
+      doc.moveTo(midX, boxTop + padY + 4).lineTo(midX, boxTop + boxH - padY - 4).strokeColor('#e0e0e5').lineWidth(0.5).stroke();
+
+      doc.y = boxTop + boxH + 20;
     }
 
     doc.end();
