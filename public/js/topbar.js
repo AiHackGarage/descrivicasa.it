@@ -52,6 +52,14 @@
       authDiv.style.display = 'none';
       userDiv.style.display = 'flex';
 
+      // Change Home → I miei immobili
+      var homeLink = document.querySelector('.topbar-links a[href="/"], .topbar-links a[onclick*="landing"]');
+      if (homeLink && !homeLink._renamed) {
+        homeLink._originalText = homeLink.textContent;
+        homeLink._renamed = true;
+      }
+      if (homeLink) homeLink.textContent = 'I miei immobili';
+
       var nameEl = document.getElementById('user-name');
       if (nameEl) nameEl.textContent = currentUser.name;
 
@@ -68,6 +76,11 @@
     } else {
       authDiv.style.display = 'flex';
       userDiv.style.display = 'none';
+      // Restore original Home text
+      var homeLink = document.querySelector('.topbar-links a[href="/"], .topbar-links a[onclick*="landing"]');
+      if (homeLink && homeLink._renamed) {
+        homeLink.textContent = 'Home';
+      }
     }
   }
 
