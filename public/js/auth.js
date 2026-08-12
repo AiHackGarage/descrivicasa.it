@@ -52,6 +52,13 @@ export function updateUI() {
         authDiv.style.display = 'none';
         userDiv.style.display = 'flex';
         nameSpan.textContent = window.currentUser.name;
+
+        // Change Home → I miei immobili
+        var homeLink = document.querySelector('.topbar-links a[onclick*="landing"]');
+        if (homeLink) {
+            if (!homeLink._originalText) homeLink._originalText = homeLink.textContent;
+            homeLink.textContent = 'I miei immobili';
+        }
         const remaining = window.currentUser.remaining !== undefined ? window.currentUser.remaining : '?';
         genSpan.textContent = remaining + '/' + (window.currentUser.monthly_limit || 3);
         avatarImg.src = window.currentUser.avatar || '/favicon.png';
@@ -77,6 +84,11 @@ export function updateUI() {
     } else {
         authDiv.style.display = 'flex';
         userDiv.style.display = 'none';
+        // Restore original Home text
+        var homeLink = document.querySelector('.topbar-links a[onclick*="landing"]');
+        if (homeLink && homeLink._originalText) {
+            homeLink.textContent = homeLink._originalText;
+        }
         // If on dashboard and not logged in, go to landing
         if (window.currentView === 'dashboard' || window.currentView === 'editor' || window.currentView === 'detail') {
             import('./navigation.js').then(m => m.navigateTo('landing'));
