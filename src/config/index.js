@@ -10,11 +10,11 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });   
 const PORT = process.env.PORT || 8000;
 
 // ── Stripe ──
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY_PROVA || process.env.STRIPE_SECRET_KEY || '';
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET_PROVA || process.env.STRIPE_WEBHOOK_SECRET || '';
-const STRIPE_PRICE_ID_BASE = process.env.STRIPE_PRICE_ID_BASIC_PROVA || process.env.STRIPE_PRICE_ID_BASE || '';
-const STRIPE_PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO_PROVA || process.env.STRIPE_PRICE_ID_PRO || '';
-const STRIPE_PUBLIC_KEY = process.env.STRIPE_PUBLIC_KEY_PROVA || process.env.STRIPE_PUBLIC_KEY || '';
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY_PROVA || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET_PROVA || '';
+const STRIPE_PRICE_ID_BASE = process.env.STRIPE_PRICE_ID_BASE || process.env.STRIPE_PRICE_ID_BASIC_PROVA || '';
+const STRIPE_PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO || process.env.STRIPE_PRICE_ID_PRO_PROVA || '';
+const STRIPE_PUBLIC_KEY = process.env.STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLIC_KEY_PROVA || '';
 
 // ── Uploads ──
 const UPLOAD_DIR = process.env.UPLOAD_DIR
