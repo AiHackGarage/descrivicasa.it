@@ -95,6 +95,7 @@ async function handleWebhook(req, res) {
 
 // Create checkout session
 async function createCheckoutSession(req, res) {
+  try {
   if (!stripe) return res.status(500).json({ error: 'Stripe non configurato' });
 
   const { plan, successUrl, cancelUrl } = req.body;
@@ -155,6 +156,10 @@ async function createCheckoutSession(req, res) {
   });
 
   res.json({ url: session.url });
+  } catch (err) {
+    logger.error('Stripe checkout error: ' + (err.message || err));
+    return res.status(500).json({ error: 'Errore Stripe: ' + (err.message || 'sconosciuto') });
+  }
 }
 
 // Customer portal
