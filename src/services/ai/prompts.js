@@ -13,23 +13,10 @@ REGOLE FERREE:
 
 📝 DESCRIZIONE PRINCIPALE (2-3 paragrafi, tono caldo e professionale):
 - Primo paragrafo: colpo d'occhio, punto di forza unico dell'immobile
-- Secondo paragrafo: descrizione degli spazi interni (layout, finiture, luce)
+- Secondo paragrafo: descrizione degli spazi interni (layout, finiture, luce). Integra qui in modo naturale i dati tecnici (metratura, locali, stato, riscaldamento, classe energetica) — NON fare un elenco separato.
 - Terzo paragrafo (opzionale): contesto della zona, punti di interesse
 
 📍 ZONA E POSIZIONE (1 frase sulla zona)
-
-🏷️ CARATTERISTICHE CHIAVE (elenco puntato con spunti per i filtri dei portali):
-- Superficie: (mq, se intuibile dalle foto)
-- Locali: (numero vani)
-- Bagni: (numero)
-- Piano: (con o senza ascensore)
-- Stato: (ristrutturato, abitabile, da ristrutturare...)
-- Esterni: (balcone, terrazzo, giardino...)
-- Riscaldamento: (autonomo/centralizzato, se intuibile)
-- Classe energetica: (non inventare, ometti se non visibile)
-
-📞 CONTATTI
-Scrivi qui i contatti forniti nei dati dell'immobile (nome, telefono, email). Se non sono stati forniti, scrivi: Per maggiori informazioni o per fissare una visita, contatta l'agenzia.
 
 REGOLE DI STILE:
 - Tono caldo, professionale, mai troppo tecnico
@@ -40,7 +27,7 @@ REGOLE DI STILE:
 - Non superare le 400 parole in totale
 - Cattura l'emozione di vivere in quella casa`;
 
-const USER_PROMPT = `Analizza attentamente queste foto e scrivi una descrizione professionale completa pronta per essere pubblicata su Idealista, seguendo la struttura obbligatoria: TITOLO, DESCRIZIONE in paragrafi, ZONA, CARATTERISTICHE CHIAVE in elenco puntato, CONTATTI. Non aggiungere preamboli o frasi di cortesia. Produci solo la descrizione dell'annuncio. Se tra le immagini c'è una planimetria o un disegno tecnico, ignorarlo: descrivi solo le foto reali.`;
+const USER_PROMPT = `Analizza attentamente queste foto e scrivi una descrizione professionale completa pronta per essere pubblicata su Idealista, seguendo la struttura obbligatoria: TITOLO, DESCRIZIONE in paragrafi, ZONA. I dati tecnici vanno integrati in modo naturale nei paragrafi, non in un elenco separato. Non aggiungere preamboli o frasi di cortesia. Produci solo la descrizione dell'annuncio. Se tra le immagini c'è una planimetria o un disegno tecnico, ignorarlo: descrivi solo le foto reali.`;
 
 const CHAT_SYSTEM = `Sei un assistente virtuale di DescriviCasa.it, un servizio che genera descrizioni immobiliari professionali tramite AI.
 
@@ -64,8 +51,7 @@ Rispondi in italiano, sii gentile e professionale. Se non sai qualcosa, indirizz
 function buildPropertyPrompt(property) {
   const t = property.property_type || 'immobile';
   const contract = property.contract_type === 'rent' ? 'affitto' : 'vendita';
-  return `Analizza attentamente queste foto e scrivi una descrizione professionale completa per questo ${t} in ${contract}, seguendo la STRUTTURA OBBLIGATORIA: TITOLO, DESCRIZIONE in paragrafi, ZONA, CARATTERISTICHE CHIAVE in elenco puntato, CONTATTI. Non aggiungere preamboli. Produci solo la descrizione dell'annuncio. Se tra le immagini c'è una planimetria o un disegno tecnico, ignorarlo: descrivi solo le foto reali.
-
+  return `Analizza attentamente queste foto e scrivi una descrizione professionale completa per questo ${t} in ${contract}, seguendo la STRUTTURA OBBLIGATORIA: TITOLO, DESCRIZIONE in paragrafi (integrando i dati tecnici in modo naturale), ZONA. Non fare elenchi separati di caratteristiche. Non aggiungere preamboli. Produci solo la descrizione dell'annuncio. Se tra le immagini c'è una planimetria o un disegno tecnico, ignorarlo: descrivi solo le foto reali.\n
 DATI DELL'IMMOBILE (integrarli nella descrizione):
 ${property.address ? `- Indirizzo: ${property.address}${property.civic ? ', ' + property.civic : ''}${property.city ? ', ' + property.city : ''}${property.province ? ' (' + property.province + ')' : ''}` : ''}
 ${property.surface ? `- Superficie: ${property.surface} mq` : ''}

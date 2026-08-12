@@ -159,6 +159,52 @@ async function generatePdf(req, res) {
          .text('Descrizione in preparazione.', { width: W, align: 'center' });
     }
 
+    // ── Caratteristiche (from real DB data) ──────────────────
+    const features = [
+      p.surface ? ['Superficie', `${p.surface} mq`] : null,
+      p.rooms ? ['Locali', String(p.rooms)] : null,
+      p.bedrooms ? ['Camere', String(p.bedrooms)] : null,
+      p.bathrooms ? ['Bagni', String(p.bathrooms)] : null,
+      p.building_state ? ['Stato', p.building_state] : null,
+      p.energy_class ? ['Classe energetica', p.energy_class + (p.energy_index ? ` (${p.energy_index})` : '')] : null,
+      p.heating ? ['Riscaldamento', p.heating] : null,
+      p.parking ? ['Posto auto', 'Sì'] : null,
+      p.basement ? ['Cantina', 'Sì'] : null,
+      p.elevator ? ['Ascensore', 'Sì'] : null,
+      p.air_conditioning ? ['Condizionamento', 'Sì'] : null,
+      p.furnished && p.furnished !== 'no' ? ['Arredato', p.furnished] : null,
+      p.balcony_sqm ? ['Balcone/Terrazzo', `${p.balcony_sqm} mq`] : null,
+      p.garden_sqm ? ['Giardino', `${p.garden_sqm} mq`] : null,
+      p.floor !== null && p.floor !== undefined ? ['Piano', `${p.floor}${p.total_floors ? '/' + p.total_floors : ''}`] : null,
+      p.year_built ? ['Anno costruzione', String(p.year_built)] : null,
+    ].filter(Boolean);
+
+    if (features.length > 0) {
+      // Check if we need a new page (at least 120px of space needed)
+      if (doc.y > doc.page.height - 180) doc.addPage();
+
+      doc.moveDown(1);
+      doc.fontSize(14).font('Helvetica-Bold').fillColor(primary).text('Caratteristiche');
+      doc.moveDown(0.4);
+
+      const colW = W / 2;
+      const rowH = 22;
+      let featY = doc.y;
+      let col = 0;
+
+      features.forEach(([label, value], i) => {
+        const ix = 50 + col * colW;
+        const iy = featY + Math.floor(i / 2) * rowH;
+
+        doc.fontSize(9).font('Helvetica').fillColor(grey).text(label, ix, iy + 2, { width: colW - 10, continued: false });
+        doc.fontSize(10).font('Helvetica-Bold').fillColor(dark).text(value, ix, iy + 14, { width: colW - 10 });
+
+        col = 1 - col;
+      });
+
+      doc.y = featY + Math.ceil(features.length / 2) * rowH + 20;
+    }
+
     doc.end();
   } catch (err) {
     if (!res.headersSent) {
