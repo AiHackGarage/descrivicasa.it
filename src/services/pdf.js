@@ -211,15 +211,15 @@ async function generatePdf(req, res) {
         col = 1 - col;
       });
 
-      // Thin horizontal separators between rows
+      // Thin horizontal separators between rows (same color as background = invisible)
       for (let r = 1; r < boxRows; r++) {
         const lineY = boxTop + padY + r * rowH;
-        doc.moveTo(50 + padX, lineY).lineTo(50 + W - padX, lineY).strokeColor('#e0e0e5').lineWidth(0.5).stroke();
+        doc.moveTo(50 + padX, lineY).lineTo(50 + W - padX, lineY).strokeColor(lightBg).lineWidth(0.5).stroke();
       }
 
-      // Thin vertical separator between columns
+      // Thin vertical separator between columns (same color as background = invisible)
       const midX = 50 + colW;
-      doc.moveTo(midX, boxTop + padY + 4).lineTo(midX, boxTop + boxH - padY - 4).strokeColor('#e0e0e5').lineWidth(0.5).stroke();
+      doc.moveTo(midX, boxTop + padY + 4).lineTo(midX, boxTop + boxH - padY - 4).strokeColor(lightBg).lineWidth(0.5).stroke();
 
       doc.y = boxTop + boxH + 20;
     }
