@@ -375,7 +375,7 @@ export async function createAndPublish() {
             garden_sqm: d.garden || null,
             parking: d.parking || false,
             basement: d.basement || false,
-            furnished: d.furnished ? d.furnished.toLowerCase() : 'no',
+            furnished: d.furnished || 'no',
             year_built: d.year_built || null,
             price: d.price || null,
             condo_fees: d.condominium || null,
