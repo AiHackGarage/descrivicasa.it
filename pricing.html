@@ -599,7 +599,7 @@
                 }
                 if (targetBtn) targetBtn.textContent = '⏳...';
 
-                const resp = await fetch('/api/create-checkout-session', {
+                const resp = await fetch('/api/stripe/create-checkout-session', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
