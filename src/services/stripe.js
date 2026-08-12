@@ -96,66 +96,72 @@ async function handleWebhook(req, res) {
 // Create checkout session
 async function createCheckoutSession(req, res) {
   try {
-  if (!stripe) return res.status(500).json({ error: 'Stripe non configurato' });
+    if (!stripe) return res.status(500).json({ error: 'Stripe non configurato' });
 
-  const { plan, successUrl, cancelUrl } = req.body;
-  if (!plan || !['base', 'pro'].includes(plan)) {
-    return res.status(400).json({ error: 'Piano non valido. Scegli base o pro.' });
-  }
-
-  const priceId = plan === 'base' ? STRIPE_PRICE_ID_BASE : STRIPE_PRICE_ID_PRO;
-  if (!priceId) {
-    return res.status(500).json({ error: `Price ID non configurato per il piano ${plan}.` });
-  }
-
-  const [users] = await pool.query(
-    'SELECT id, email, name, stripe_customer_id, plan AS current_plan FROM users WHERE id = ?',
-    [req.user.id]
-  );
-  if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
-
-  const user = users[0];
-  let customerId = user.stripe_customer_id;
-
-  if (customerId) {
-    const subs = await stripe.subscriptions.list({ customer: customerId, status: 'active', limit: 1 });
-
-    if (subs.data.length > 0) {
-      const sub = subs.data[0];
-      if (user.current_plan === plan) {
-        return res.status(400).json({ error: `Sei già sul piano ${plan === 'base' ? 'Base' : 'Pro'}.` });
-      }
-
-      // Upgrade/downgrade: aggiorna la subscription esistente
-      const updatedSub = await stripe.subscriptions.update(sub.id, {
-        items: [{ id: sub.items.data[0].id, price: priceId }],
-        proration_behavior: 'always_invoice',
-        metadata: { userId: String(req.user.id), plan },
-      });
-
-      // Aggiorna subito il piano (lo Stripe webhook confermerà)
-      try {
-        await pool.query('UPDATE users SET plan = ?, stripe_subscription_id = ? WHERE id = ?', [plan, updatedSub.id, req.user.id]);
-      } catch (_) {
-        await pool.query('UPDATE users SET plan = ? WHERE id = ?', [plan, req.user.id]);
-      }
-      return res.json({ url: successUrl || '/', subscription: 'updated' });
+    const { plan, successUrl, cancelUrl } = req.body;
+    if (!plan || !['free', 'base', 'pro'].includes(plan)) {
+      return res.status(400).json({ error: 'Piano non valido. Scegli free, base o pro.' });
     }
-  }
 
-  // Nuovo checkout
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    mode: 'subscription',
-    customer: customerId || undefined,
-    customer_email: customerId ? undefined : user.email,
-    line_items: [{ price: priceId, quantity: 1 }],
-    metadata: { userId: String(req.user.id), plan },
-    success_url: successUrl || 'https://descrivicasa.it/?success=1',
-    cancel_url: cancelUrl || 'https://descrivicasa.it/pricing',
-  });
+    const [users] = await pool.query(
+      'SELECT id, email, name, stripe_customer_id, stripe_subscription_id, plan AS current_plan FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    if (users.length === 0) return res.status(404).json({ error: 'Utente non trovato' });
 
-  res.json({ url: session.url });
+    const user = users[0];
+    const customerId = user.stripe_customer_id;
+    const subscriptionId = user.stripe_subscription_id;
+
+    // ── Piano FREE: termina abbonamento a scadenza ──
+    if (plan === 'free') {
+      if (!subscriptionId) {
+        return res.status(400).json({ error: 'Nessun abbonamento attivo da terminare.' });
+      }
+      if (user.current_plan === 'free') {
+        return res.status(400).json({ error: 'Sei già sul piano Free.' });
+      }
+      await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+      });
+      return res.json({ message: 'Abbonamento terminato. Il piano Free sarà attivo al termine del periodo corrente.' });
+    }
+
+    // ── Piano BASE o PRO ──
+    const priceId = plan === 'base' ? STRIPE_PRICE_ID_BASE : STRIPE_PRICE_ID_PRO;
+    if (!priceId) {
+      return res.status(500).json({ error: `Price ID non configurato per il piano ${plan}.` });
+    }
+
+    // Utente con subscription attiva → cambia piano (a scadenza, senza proration)
+    if (subscriptionId && customerId) {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      if (sub.status === 'active' || sub.status === 'trialing') {
+        if (user.current_plan === plan) {
+          return res.status(400).json({ error: `Sei già sul piano ${plan === 'base' ? 'Base' : 'Pro'}.` });
+        }
+        // Cambia il price della subscription esistente (senza proration → a scadenza)
+        await stripe.subscriptions.update(subscriptionId, {
+          items: [{ id: sub.items.data[0].id, price: priceId }],
+          metadata: { userId: String(req.user.id), plan },
+        });
+        return res.json({ message: `Passaggio a ${plan === 'base' ? 'Base' : 'Pro'} programmato. Prenderà effetto al prossimo rinnovo.` });
+      }
+    }
+
+    // Nuovo checkout (utente senza subscription Stripe)
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      customer: customerId || undefined,
+      customer_email: customerId ? undefined : user.email,
+      line_items: [{ price: priceId, quantity: 1 }],
+      metadata: { userId: String(req.user.id), plan },
+      success_url: successUrl || 'https://descrivicasa.it/pricing?subscribed=' + plan,
+      cancel_url: cancelUrl || 'https://descrivicasa.it/pricing',
+    });
+
+    res.json({ url: session.url });
   } catch (err) {
     logger.error('Stripe checkout error: ' + (err.message || err));
     return res.status(500).json({ error: 'Errore Stripe: ' + (err.message || 'sconosciuto') });

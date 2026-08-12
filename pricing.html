@@ -532,11 +532,11 @@
                     <li class="missing">API pubblica</li>
                     <li class="missing">Supporto prioritario</li>
                 </ul>
-                <a href="#" class="btn-cta" onclick="showModal('register');return false">Inizia Gratis</a>
+                <a href="#" id="btn-free" class="btn-cta" data-plan="free" onclick="checkout('free');return false">Inizia Gratis</a>
             </div>
 
             <div class="plan">
-                <div class="plan-icon">📱</div>
+                <div class="plan-icon">💼</div>
                 <h2>Base</h2>
                 <div class="price">€9 <span>/mese</span></div>
                 <ul>
@@ -547,7 +547,7 @@
                     <li>Esportazione PDF</li>
                     <li class="missing">API pubblica</li>
                 </ul>
-                <a href="#" class="btn-cta" onclick="checkout('base');return false">Inizia Ora</a>
+                <a href="#" id="btn-base" class="btn-cta" data-plan="base" onclick="checkout('base');return false">Inizia Ora</a>
             </div>
 
             <div class="plan featured">
@@ -561,7 +561,7 @@
                     <li>Esportazione PDF</li>
                     <li>API pubblica per integrazione</li>
                 </ul>
-                <a href="#" class="btn-cta" onclick="checkout('pro');return false">Inizia Ora</a>
+                <a href="#" id="btn-pro" class="btn-cta" data-plan="pro" onclick="checkout('pro');return false">Inizia Ora</a>
             </div>
         </div>
 
@@ -577,56 +577,101 @@
         // ════════════════════════════════════════════════════════
 
         let pendingCheckoutPlan = null;
+        let currentPlan = 'free';
 
         function getToken() { return localStorage.getItem('dc_token'); }
 
+        const planLabels = { free: 'Gratis', base: 'Base', pro: 'Pro' };
+
+        function updateCardButtons(plan) {
+            currentPlan = plan;
+            var btns = {
+                free: document.getElementById('btn-free'),
+                base: document.getElementById('btn-base'),
+                pro: document.getElementById('btn-pro')
+            };
+            // Reset all
+            for (var k in btns) {
+                var b = btns[k];
+                if (!b) continue;
+                b.className = 'btn-cta';
+                b.style.opacity = '1';
+                b.style.pointerEvents = 'auto';
+            }
+            // Current plan: disable button
+            if (btns[plan]) {
+                btns[plan].textContent = 'Piano attuale';
+                btns[plan].className = 'btn-cta';
+                btns[plan].style.opacity = '0.5';
+                btns[plan].style.pointerEvents = 'none';
+            }
+            // Other plans: contextual labels
+            if (plan === 'free') {
+                if (btns.base) btns.base.textContent = 'Inizia Ora';
+                if (btns.pro) btns.pro.textContent = 'Inizia Ora';
+            } else {
+                // base or pro — Free becomes "Termina a scadenza"
+                if (btns.free) btns.free.textContent = 'Termina a scadenza';
+                if (plan === 'base') {
+                    if (btns.pro) btns.pro.textContent = 'Passa a Pro';
+                } else if (plan === 'pro') {
+                    if (btns.base) btns.base.textContent = 'Passa a Base';
+                }
+            }
+        }
+
         async function checkout(plan) {
-            const token = getToken();
+            var token = getToken();
             if (!token) {
                 pendingCheckoutPlan = plan;
                 showModal('register');
                 return;
             }
+            if (plan === currentPlan) return;
+
+            var btn = document.getElementById('btn-' + plan);
+            if (btn) btn.textContent = '⏳...';
 
             try {
-                const btns = document.querySelectorAll('.btn-cta');
-                let targetBtn = null;
-                for (const b of btns) {
-                    if (b.onclick && b.onclick.toString().includes("'" + plan + "'")) {
-                        targetBtn = b;
-                        break;
-                    }
-                }
-                if (targetBtn) targetBtn.textContent = '⏳...';
-
-                const resp = await fetch('/api/stripe/create-checkout-session', {
+                var resp = await fetch('/api/stripe/create-checkout-session', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + token,
                     },
-                    body: JSON.stringify({ plan }),
+                    body: JSON.stringify({ plan: plan }),
                 });
-
-                const data = await resp.json();
-                if (targetBtn) targetBtn.textContent = 'Inizia Ora';
-
+                var data = await resp.json();
+                if (btn) btn.textContent = planLabels[plan];
                 if (data.url) {
                     window.location.href = data.url;
-                } else if (data.upgraded) {
-                    if (typeof topbarUpdateUI === 'function') topbarUpdateUI();
-                    alert('✅ Passato al piano ' + (data.plan === 'pro' ? 'Pro' : 'Base') + '!');
-                    window.location.href = '/';
-                } else if (data.scheduled) {
-                    alert('📅 ' + (data.message || 'Passaggio programmato. Il piano attuale resta attivo fino alla scadenza.'));
-                    window.location.href = '/';
+                } else if (data.message) {
+                    alert(data.message);
+                    window.location.reload();
                 } else {
-                    alert(data.error || 'Errore creazione pagamento');
+                    alert(data.error || 'Errore');
                 }
             } catch (err) {
+                if (btn) btn.textContent = planLabels[plan];
                 alert('Errore: ' + err.message);
             }
         }
+
+        async function initPricing() {
+            var token = getToken();
+            if (!token) return;
+            try {
+                var resp = await fetch('/api/me', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                var data = await resp.json();
+                if (data.user && data.user.plan) {
+                    updateCardButtons(data.user.plan);
+                }
+            } catch (_) {}
+        }
+
+        initPricing();
 
         function afterAuthSuccess() {
             if (pendingCheckoutPlan) {

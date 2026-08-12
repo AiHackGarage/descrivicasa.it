@@ -21,7 +21,7 @@ const chatSchema = {
 };
 
 const checkoutSchema = {
-  plan: { required: true, type: 'string', enum: ['base', 'pro'] },
+  plan: { required: true, type: 'string', enum: ['free', 'base', 'pro'] },
 };
 
 const syncSubscriptionSchema = {
