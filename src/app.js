@@ -17,10 +17,13 @@ const pagesRouter = require('./routes/pages');
 const app = express();
 app.set('trust proxy', 1);
 
-// Stripe webhook MUST be registered before express.json() — it has its own raw body parser
-app.use('/api/stripe', stripeRouter);
+// Stripe webhook — needs raw body, must be before express.json()
+const { handleWebhook } = require('./services/stripe');
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 
+// Rest of Stripe routes (need JSON body)
 app.use(express.json());
+app.use('/api/stripe', stripeRouter);
 app.use('/media/uploads', express.static(UPLOAD_DIR));
 
 // Serve JS with no-cache to prevent stale ES module imports after deploy
