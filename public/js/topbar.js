@@ -126,7 +126,7 @@
   window.openCustomerPortal = function () {
     var btn = document.getElementById('profile-btn-manage');
     if (btn) btn.textContent = '\u23F3 Apertura...';
-    fetch('/api/customer-portal', {
+    fetch('/api/stripe/customer-portal', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

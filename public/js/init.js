@@ -37,7 +37,7 @@ if (window.authToken) {
                 const urlParams = new URLSearchParams(window.location.search);
                 const subscribedPlan = urlParams.get('subscribed');
                 if (subscribedPlan && (subscribedPlan === 'base' || subscribedPlan === 'pro')) {
-                    fetch('/api/sync-subscription', {
+                    fetch('/api/stripe/sync-subscription', {
                         method: 'POST',
                         headers: { 'Authorization': 'Bearer ' + window.authToken, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ plan: subscribedPlan }),

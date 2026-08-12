@@ -46,7 +46,7 @@ export async function openCustomerPortal() {
     const btn = document.getElementById('profile-btn-manage');
     if (btn) btn.textContent = '⏳ Apertura...';
     try {
-        const resp = await fetch('/api/customer-portal', {
+        const resp = await fetch('/api/stripe/customer-portal', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
