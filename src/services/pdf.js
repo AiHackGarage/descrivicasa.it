@@ -9,7 +9,7 @@ const { resizeForPdf } = require('./image');
 async function generatePdf(req, res) {
   try {
     const [rows] = await pool.query(
-      `SELECT p.*, u.name AS user_name, u.email AS user_email
+      `SELECT p.*, u.name AS user_name, u.email AS user_email, u.plan
        FROM properties p JOIN users u ON p.user_id = u.id
        WHERE p.uuid = ? AND p.is_public = TRUE AND p.status IN ('published','draft')`,
       [req.params.uuid]
@@ -17,6 +17,7 @@ async function generatePdf(req, res) {
     if (rows.length === 0) return res.status(404).json({ error: 'Immobile non trovato' });
 
     const p = rows[0];
+    const isPro = p.plan === 'pro';
     p.agent_name = p.agent_name || p.user_name;
     p.agent_email = p.agent_email || p.user_email;
     p.agent_phone = p.agent_phone || null;
@@ -51,12 +52,14 @@ async function generatePdf(req, res) {
     // PAGE 1: Header + Title + Features + Gallery
     // ═══════════════════════════════════════════
 
-    // Header (subtle)
-    doc.fontSize(10).font('Helvetica').fillColor(grey)
-       .text('DescriviCasa.it — Descrizione Immobiliare Professionale', { align: 'left' });
-    doc.moveDown(0.3);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(primary).lineWidth(1.5).stroke();
-    doc.moveDown(0.6);
+    // Header (only for non-Pro plans)
+    if (!isPro) {
+      doc.fontSize(10).font('Helvetica').fillColor(grey)
+         .text('DescriviCasa.it — Descrizione Immobiliare Professionale', { align: 'left' });
+      doc.moveDown(0.3);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(primary).lineWidth(1.5).stroke();
+      doc.moveDown(0.6);
+    }
 
     // Title big
     doc.fontSize(20).font('Helvetica-Bold').fillColor(dark).text(title, { align: 'left' });
@@ -119,12 +122,14 @@ async function generatePdf(req, res) {
     // ═══════════════════════════════════════════
     doc.addPage();
 
-    // Page header
-    doc.fontSize(10).font('Helvetica').fillColor(grey)
-       .text('DescriviCasa.it — Descrizione Immobiliare Professionale', { align: 'left' });
-    doc.moveDown(0.3);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(primary).lineWidth(1).stroke();
-    doc.moveDown(0.6);
+    // Page header (only for non-Pro plans)
+    if (!isPro) {
+      doc.fontSize(10).font('Helvetica').fillColor(grey)
+         .text('DescriviCasa.it — Descrizione Immobiliare Professionale', { align: 'left' });
+      doc.moveDown(0.3);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(primary).lineWidth(1).stroke();
+      doc.moveDown(0.6);
+    }
 
     // Re-print title small
     doc.fontSize(12).font('Helvetica-Bold').fillColor(dark).text(title);
