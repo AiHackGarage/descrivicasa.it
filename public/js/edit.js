@@ -253,7 +253,7 @@ export function validateContactField() {
     if (phoneEl && phoneEl.value.trim()) {
         const phoneVal = phoneEl.value.trim();
         const errEl = document.getElementById('err-phone');
-        const phoneRegex = /^(\+?\d{1,3}[-\s]?)?\d{6,15}$/;
+        const phoneRegex = /^\+?(\d[\s.-]?){6,15}$/;
         if (!phoneRegex.test(phoneVal)) {
             if (errEl) { errEl.textContent = 'Numero non valido (es. +39 123 456 7890)'; errEl.style.display = 'block'; }
             phoneEl.style.borderColor = '#e74c3c';

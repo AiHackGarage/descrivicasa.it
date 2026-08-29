@@ -54,7 +54,7 @@ const propertyDataSchema = {
   latitude: { type: 'number', min: -90, max: 90 },
   longitude: { type: 'number', min: -180, max: 180 },
   condo_fees: { type: 'number', min: 0, max: 999999 },
-  agent_phone: { type: 'string', max: 30, pattern: '^(\\\\+?\\\\d{1,3}[-\\\\s]?)?\\\\d{6,15}$' },
+  agent_phone: { type: 'string', max: 30, pattern: '^\\+?(\\d[\\s.-]?){6,15}$' },
   agent_email: { type: 'email' },
   title: { type: 'string', max: 500 },
   description: { type: 'string', max: 50000 },

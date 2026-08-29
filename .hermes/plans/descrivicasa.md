@@ -1,6 +1,6 @@
 # Piano Progetto: DescriviCasa.it
 
-**Ultimo aggiornamento:** 2026-08-12
+**Ultimo aggiornamento:** 2026-08-29
 **Stato:** Attivo, miglioramenti continui
 **Deploy:** Hostinger Business (Node.js, GitHub auto-deploy)
 
@@ -39,6 +39,7 @@ descrivicasa.it/
 ```
 
 ## Ultime modifiche (agosto 2026)
+- Fix sitemap 500: `updated_at` stringa (dateStrings:true) crashava `.toISOString()` in `pages.js` — ora gestisce stringa/Date/null. Sitemap 200, XML valido, include pagine immobili pubbliche (max 1000)
 - Migliorata impaginazione PDF pagina 2 (spazio titolo-descrizione, box Caratteristiche con sfondo lightBg)
 - Separatori box Caratteristiche PDF resi invisibili (colore = sfondo #f5f5f7)
 - Aggiunta sezione dati reali nel PDF invece di prompt AI
