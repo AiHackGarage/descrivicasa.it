@@ -39,6 +39,7 @@ descrivicasa.it/
 ```
 
 ## Ultime modifiche (agosto 2026)
+- Chat assistente: widget self-contained (`public/js/chat.js` crea CSS+DOM da solo), presente in TUTTE le 5 pagine (index, pricing, property, privacy, termini), funziona anche non loggati. Rimosse copie vecchie (markup in index.html, CSS in pricing.html)
 - Fix sitemap 500: `updated_at` stringa (dateStrings:true) crashava `.toISOString()` in `pages.js` — ora gestisce stringa/Date/null. Sitemap 200, XML valido, include pagine immobili pubbliche (max 1000)
 - Migliorata impaginazione PDF pagina 2 (spazio titolo-descrizione, box Caratteristiche con sfondo lightBg)
 - Separatori box Caratteristiche PDF resi invisibili (colore = sfondo #f5f5f7)
@@ -55,4 +56,5 @@ descrivicasa.it/
 - Foto: MAI cancellare automaticamente
 
 ## TODO / Idee future
-- (da definire)
+- **REFACTOR TOPBAR → COMPONENTE UNICO (DRY)** (29/08/2026): la topbar è duplicata in 5 HTML + CSS in main.css/property.css/inline. Convertire `topbar.js` in componente self-contained (markup+CSS iniettati, come chat.js), gestendo SPA (navigateTo) vs pagine statiche (href). Rimuovere tutte le copie. Verificare media query mobile (su mobile la home nasconde .topbar-links, le altre no).
+- **ISTRUIRE MEGLIO L'ASSISTENTE CHAT** (richiesto da Riccardo, 29/08/2026 — da fare): oggi `CHAT_SYSTEM` in `src/services/ai/prompts.js` ha una knowledge base minima (~15 righe) → il modello si inventa risposte. Interventi concordati: 1) riscrivere CHAT_SYSTEM con knowledge base completa e accurata (piani/prezzi/limiti reali, foto per piano, PDF, registrazione, pagamento, modifica immobili, FAQ vere); 2) regola anti-allucinazione ("rispondi SOLO con info del prompt, altrimenti → info@descrivicasa.it"); 3) abbassare temperature da 0.7 a ~0.3 in `src/routes/analyze.js:109`. ⚠️ Verificare con Riccardo se il piano Pro ha davvero un'API (il prompt attuale dice "API" ma PLAN_CONFIG non la prevede — probabile info falsa da togliere). Chiedere a Riccardo quali domande ha fatto al bot per coprirle nella knowledge base.
