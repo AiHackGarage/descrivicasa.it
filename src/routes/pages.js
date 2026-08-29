@@ -28,7 +28,11 @@ router.get('/sitemap.xml', async (req, res) => {
     xml += '  <url><loc>https://descrivicasa.it/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n';
     xml += '  <url><loc>https://descrivicasa.it/pricing</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>\n';
     for (const r of rows) {
-      xml += `  <url><loc>https://descrivicasa.it/p/${r.uuid}</loc><lastmod>${r.updated_at.toISOString().slice(0, 10)}</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+      // dateStrings: true → updated_at arriva come stringa MySQL ("YYYY-MM-DD HH:MM:SS").
+      // Gestire stringa, Date o null per non crashare con .toISOString().
+      const dt = r.updated_at ? (r.updated_at instanceof Date ? r.updated_at : new Date(r.updated_at)) : null;
+      const lastmod = !dt || isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
+      xml += `  <url><loc>https://descrivicasa.it/p/${r.uuid}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
     }
     xml += '</urlset>';
     res.setHeader('Content-Type', 'application/xml');
