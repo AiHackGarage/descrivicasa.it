@@ -168,22 +168,6 @@
         </div>
     </div>
 
-    <!-- ── Chat ─────────────────────────────────────────────────── -->
-    <div class="chat-bubble" id="chat-bubble" onclick="toggleChat()">💬</div>
-    <div class="chat-panel" id="chat-panel">
-        <div class="chat-header">
-            <span>🤖 Assistente DescriviCasa</span>
-            <button class="chat-close" onclick="toggleChat()">✕</button>
-        </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="chat-msg bot">Ciao! Sono l'assistente di DescriviCasa.it. Come posso aiutarti? 🏠</div>
-        </div>
-        <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chat-input" placeholder="Scrivi un messaggio..." onkeydown="if(event.key==='Enter')sendChat()">
-            <button class="chat-send" onclick="sendChat()">➤</button>
-        </div>
-    </div>
-
     <!-- ══════════════════════════════════════════════════════════════
          MAIN CONTENT - SPA VIEWS
          ══════════════════════════════════════════════════════════════ -->
@@ -280,6 +264,7 @@
 
     <!-- Application entry point (ES module) -->
     <script type="module" src="/js/init.js?v=2"></script>
+    <script type="module" src="/js/chat.js?v=3"></script>
 
     <!-- ── Cookie Banner ── -->
     <div class="cookie-banner" id="cookie-banner" style="display:none;">

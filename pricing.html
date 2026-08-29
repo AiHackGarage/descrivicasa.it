@@ -290,60 +290,6 @@
             accent-color: #667eea; flex-shrink: 0;
         }
 
-        
-        /* ── Chat ─────────────────────────────────────────── */
-        .chat-bubble {
-            position: fixed; bottom: 24px; right: 24px;
-            width: 56px; height: 56px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.5rem; cursor: pointer;
-            box-shadow: 0 4px 20px rgba(102,126,234,0.4);
-            z-index: 300; transition: transform 0.2s;
-        }
-        .chat-bubble:hover { transform: scale(1.1); }
-        .chat-bubble.open { display: none; }
-        .chat-panel {
-            position: fixed; bottom: 24px; right: 24px;
-            width: 360px; max-height: 500px;
-            background: white; border-radius: 16px;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.15);
-            z-index: 300; display: none;
-            flex-direction: column; overflow: hidden;
-        }
-        .chat-panel.open { display: flex; }
-        .chat-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 14px 18px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white; font-weight: 600; font-size: 0.9rem;
-        }
-        .chat-close { background: none; border: none; color: white; font-size: 1.1rem; cursor: pointer; opacity: 0.8; }
-        .chat-close:hover { opacity: 1; }
-        .chat-messages {
-            flex: 1; padding: 14px; overflow-y: auto; max-height: 340px;
-            display: flex; flex-direction: column; gap: 10px;
-        }
-        .chat-msg {
-            max-width: 85%; padding: 10px 14px;
-            border-radius: 14px; font-size: 0.88rem; line-height: 1.4; white-space: pre-wrap;
-        }
-        .chat-msg.bot { background: #f0f0ff; color: #1d1d1f; align-self: flex-start; border-bottom-left-radius: 4px; }
-        .chat-msg.user { background: #667eea; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .chat-msg.typing { background: #f0f0ff; color: #86868b; align-self: flex-start; font-style: italic; }
-        .chat-input-area { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid #e8e8ed; }
-        .chat-input {
-            flex: 1; padding: 10px 14px; border: 1px solid #d2d2d7;
-            border-radius: 20px; font-size: 0.88rem; outline: none;
-        }
-        .chat-input:focus { border-color: #667eea; }
-        .chat-send {
-            width: 38px; height: 38px; background: #667eea;
-            color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 1rem;
-        }
-        .chat-send:hover { background: #5a6fd6; }
-
         /* ── Cookie Banner ── */
         .cookie-banner {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -834,5 +780,6 @@ if (localStorage.getItem('cookie-consent') !== 'accepted') {
     document.getElementById('cookie-banner').style.display = 'flex';
 }
 </script>
+    <script type="module" src="/js/chat.js?v=3"></script>
 </body>
 </html>
