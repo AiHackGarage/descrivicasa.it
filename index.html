@@ -52,7 +52,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
-<body>
+<body data-app="spa">
     <!-- ── Upgrade Banner ──────────────────────────────────────── -->
     <div class="upgrade-banner" id="upgrade-banner">
         <span class="banner-icon">🎉</span>
@@ -61,58 +61,6 @@
     </div>
 
     <!-- ── Top Bar ──────────────────────────────────────────────── -->
-    <div class="topbar">
-        <a class="topbar-logo" onclick="navigateTo('landing')">🏠 DescriviCasa.it</a>
-        <div class="topbar-links">
-            <a onclick="navigateTo('landing')">Home</a>
-            <a href="/pricing">Prezzi</a>
-        </div>
-        <div class="topbar-auth" id="topbar-auth">
-            <button class="btn-auth" onclick="showModal('login')">Accedi</button>
-            <button class="btn-auth btn-auth-primary" onclick="showModal('register')">Registrati</button>
-        </div>
-        <div class="topbar-user" id="topbar-user" style="display:none">
-            <div class="user-trigger" onclick="toggleProfile()">
-                <img id="user-avatar" class="user-avatar" src="" alt="">
-                <span id="user-name" class="user-name"></span>
-                <span class="user-generations" id="user-generations"></span>
-                <span class="user-arrow">▾</span>
-            </div>
-            <button class="btn-auth" onclick="logout()">Esci</button>
-        </div>
-    </div>
-
-    <!-- ── Profile Panel ────────────────────────────────────────── -->
-    <div class="profile-panel" id="profile-panel">
-        <div class="profile-header">
-            <img id="profile-avatar" src="" alt="" onerror="this.src='/favicon.png'">
-            <div>
-                <div class="profile-name" id="profile-name"></div>
-                <div class="profile-email" id="profile-email"></div>
-            </div>
-        </div>
-        <div class="profile-body">
-            <div class="profile-row">
-                <span class="profile-label">Piano</span>
-                <span class="profile-value" id="profile-plan"></span>
-            </div>
-            <div class="profile-row" id="profile-renewal-row" style="display:none">
-                <span class="profile-label">Rinnovo</span>
-                <span class="profile-value" id="profile-renewal"></span>
-            </div>
-        </div>
-        <div class="profile-footer">
-            <a href="/pricing" class="profile-btn" id="profile-btn-pricing">Vedi piani ➤</a>
-            <button class="profile-btn profile-btn-outline" id="profile-btn-manage" style="display:none" onclick="openCustomerPortal()">⚙️ Gestisci abbonamento</button>
-            <button class="profile-btn profile-btn-outline" onclick="logout(); toggleProfile();">Esci</button>
-        </div>
-        <div class="history-section" id="history-section">
-            <div class="history-title">📜 Ultime descrizioni</div>
-            <div class="history-loading" id="history-loading">Caricamento...</div>
-            <div id="history-list"></div>
-        </div>
-    </div>
-
     <!-- ── Auth Modal ─────────────────────────────────────────── -->
     <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
         <div class="modal">
@@ -262,6 +210,8 @@
     <!-- Google Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
+    <!-- Layout (struttura generale: topbar + profilo) -->
+    <script src="/js/layout.js?v=1"></script>
     <!-- Application entry point (ES module) -->
     <script type="module" src="/js/init.js?v=2"></script>
     <script type="module" src="/js/chat.js?v=3"></script>

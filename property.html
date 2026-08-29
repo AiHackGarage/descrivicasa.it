@@ -27,49 +27,8 @@
     <link rel="stylesheet" href="/css/property.css" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body>
+<body data-app="static">
     <!-- ── Top Bar ──────────────────────────────────────────── -->
-    <div class="topbar">
-        <a class="topbar-logo" href="/">🏠 DescriviCasa.it</a>
-        <div class="topbar-links">
-            <a href="/">Home</a>
-            <a href="/pricing">Prezzi</a>
-        </div>
-        <div class="topbar-auth" id="topbar-auth">
-            <button class="btn-auth" onclick="showModal('login')">Accedi</button>
-            <button class="btn-auth btn-auth-primary" onclick="showModal('register')">Registrati</button>
-        </div>
-        <div class="topbar-user" id="topbar-user" style="display:none">
-            <div class="user-trigger" onclick="toggleProfile()">
-                <img id="user-avatar" class="user-avatar" src="" alt="">
-                <span id="user-name" class="user-name"></span>
-                <span class="user-generations" id="user-generations"></span>
-                <span class="user-arrow">▾</span>
-            </div>
-            <button class="btn-auth" onclick="logout()">Esci</button>
-        </div>
-    </div>
-
-    <!-- ── Profile Panel ────────────────────────────────────── -->
-    <div class="profile-panel" id="profile-panel">
-        <div class="profile-header">
-            <img id="profile-avatar" src="" alt="" onerror="this.src='/favicon.png'">
-            <div>
-                <div class="profile-name" id="profile-name"></div>
-                <div class="profile-email" id="profile-email"></div>
-            </div>
-        </div>
-        <div class="profile-body">
-            <div class="profile-row"><span class="profile-label">Piano</span><span class="profile-value" id="profile-plan"></span></div>
-            <div class="profile-row" id="profile-renewal-row" style="display:none"><span class="profile-label">Rinnovo</span><span class="profile-value" id="profile-renewal"></span></div>
-        </div>
-        <div class="profile-footer">
-            <a href="/pricing" class="profile-btn" id="profile-btn-pricing">Vedi piani ➤</a>
-            <button class="profile-btn profile-btn-outline" id="profile-btn-manage" style="display:none" onclick="openCustomerPortal()">⚙️ Gestisci abbonamento</button>
-            <button class="profile-btn profile-btn-outline" onclick="logout(); toggleProfile();">Esci</button>
-        </div>
-    </div>
-
     <!-- ── Auth Modal ─────────────────────────────────────── -->
     <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
         <div class="modal">
@@ -200,6 +159,7 @@
     </div><!-- /property-content -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/js/layout.js?v=1"></script>
     <script src="/js/topbar.js"></script>
     <script>
 
